@@ -1,127 +1,105 @@
-import React, { lazy, Suspense } from 'react';
-import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
-import { AuthProvider } from '../context/AuthContext';
-import { ToastProvider } from '../components/common/Toast';
+import React from 'react';
+import {
+  BrowserRouter,
+  Routes,
+  Route,
+  Navigate,
+} from 'react-router-dom';
+
 import { ProtectedRoute } from './ProtectedRoute';
-import { LoadingOverlay } from '../components/common/Spinner';
-import { ROUTES } from '../constants/theme';
-import { PlaceholderPage } from '../pages/PlaceholderPage';
 
-// Lazy loaded pages
-const LoginPage           = lazy(() => import('../pages/auth/LoginPage'));
-const ForgotPasswordPage  = lazy(() => import('../pages/auth/ForgotPasswordPage'));
-const SessionReadyPage    = lazy(() => import('../pages/auth/SessionReadyPage'));
-const DashboardPage       = lazy(() => import('../pages/dashboard/DashboardPage'));
-const TopologyPage        = lazy(() => import('../pages/topology/TopologyPage'));
+const AppRoutes: React.FC = () => {
+  return (
+    <BrowserRouter>
+      <Routes>
 
-const PageFallback = () => (
-  <div className="min-h-screen flex items-center justify-center bg-surface-secondary">
-    <LoadingOverlay />
-  </div>
-);
+        <Route
+          path="/"
+          element={<Navigate to="/dashboard" replace />}
+        />
 
-export const AppRoutes: React.FC = () => (
-  <BrowserRouter>
-    <AuthProvider>
-      <ToastProvider>
-        <Suspense fallback={<PageFallback />}>
-          <Routes>
-            {/* Auth routes */}
-            <Route path={ROUTES.LOGIN}           element={<LoginPage />} />
-            <Route path={ROUTES.FORGOT_PASSWORD} element={<ForgotPasswordPage />} />
-            <Route
-              path={ROUTES.SESSION_READY}
-              element={
-                <ProtectedRoute>
-                  <SessionReadyPage />
-                </ProtectedRoute>
-              }
-            />
+        <Route
+          path="/login"
+          element={<div>Login Page</div>}
+        />
 
-            {/* Protected app routes */}
-            <Route
-              path={ROUTES.DASHBOARD}
-              element={
-                <ProtectedRoute>
-                  <DashboardPage />
-                </ProtectedRoute>
-              }
-            />
-            <Route
-              path={ROUTES.TOPOLOGY}
-              element={
-                <ProtectedRoute>
-                  <TopologyPage />
-                </ProtectedRoute>
-              }
-            />
-            <Route
-              path={ROUTES.ALERTS}
-              element={
-                <ProtectedRoute>
-                  <PlaceholderPage
-                    title="Alert Management"
-                    description="Full alert management with filtering, acknowledgment, and escalation rules. Coming in Phase 2."
-                    breadcrumbs={[{ label: 'Alerts' }]}
-                  />
-                </ProtectedRoute>
-              }
-            />
-            <Route
-              path={ROUTES.DEVICES}
-              element={
-                <ProtectedRoute>
-                  <PlaceholderPage
-                    title="Device Inventory"
-                    description="Complete device inventory with real-time stats, configuration, and management. Coming in Phase 2."
-                    breadcrumbs={[{ label: 'Devices' }]}
-                  />
-                </ProtectedRoute>
-              }
-            />
-            <Route
-              path={ROUTES.ANALYTICS}
-              element={
-                <ProtectedRoute>
-                  <PlaceholderPage
-                    title="Analytics"
-                    description="Advanced analytics with historical data, trends, and AI predictions. Coming in Phase 2."
-                    breadcrumbs={[{ label: 'Analytics' }]}
-                  />
-                </ProtectedRoute>
-              }
-            />
-            <Route
-              path={ROUTES.REPORTS}
-              element={
-                <ProtectedRoute>
-                  <PlaceholderPage
-                    title="Reports"
-                    description="Automated report generation and scheduling. Coming in Phase 2."
-                    breadcrumbs={[{ label: 'Reports' }]}
-                  />
-                </ProtectedRoute>
-              }
-            />
-            <Route
-              path={ROUTES.SETTINGS}
-              element={
-                <ProtectedRoute>
-                  <PlaceholderPage
-                    title="Settings"
-                    description="User preferences, notification settings, and integrations. Coming in Phase 2."
-                    breadcrumbs={[{ label: 'Settings' }]}
-                  />
-                </ProtectedRoute>
-              }
-            />
+        <Route
+          path="/forgot-password"
+          element={<div>Forgot Password Page</div>}
+        />
 
-            {/* Redirects */}
-            <Route path="/" element={<Navigate to={ROUTES.DASHBOARD} replace />} />
-            <Route path="*" element={<Navigate to={ROUTES.DASHBOARD} replace />} />
-          </Routes>
-        </Suspense>
-      </ToastProvider>
-    </AuthProvider>
-  </BrowserRouter>
-);
+        <Route
+          path="/dashboard"
+          element={
+            <ProtectedRoute>
+              <div>AI-NOC Dashboard</div>
+            </ProtectedRoute>
+          }
+        />
+
+        <Route
+          path="/topology"
+          element={
+            <ProtectedRoute>
+              <div>Network Topology</div>
+            </ProtectedRoute>
+          }
+        />
+
+        <Route
+          path="/alerts"
+          element={
+            <ProtectedRoute>
+              <div>Alert Management</div>
+            </ProtectedRoute>
+          }
+        />
+
+        <Route
+          path="/devices"
+          element={
+            <ProtectedRoute>
+              <div>Device Inventory</div>
+            </ProtectedRoute>
+          }
+        />
+
+        <Route
+          path="/analytics"
+          element={
+            <ProtectedRoute>
+              <div>Analytics</div>
+            </ProtectedRoute>
+          }
+        />
+
+        <Route
+          path="/reports"
+          element={
+            <ProtectedRoute>
+              <div>Reports</div>
+            </ProtectedRoute>
+          }
+        />
+
+        <Route
+          path="/settings"
+          element={
+            <ProtectedRoute>
+              <div>Settings</div>
+            </ProtectedRoute>
+          }
+        />
+
+        <Route
+          path="*"
+          element={<Navigate to="/dashboard" replace />}
+        />
+
+      </Routes>
+    </BrowserRouter>
+  );
+};
+
+export { AppRoutes };
+export default AppRoutes;
