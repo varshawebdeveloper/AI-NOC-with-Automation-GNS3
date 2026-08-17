@@ -1,15 +1,10 @@
-/// <reference types="vite/client" />
-
-import { StrictMode, createElement } from 'react'
+import { StrictMode } from 'react'
 import { createRoot } from 'react-dom/client'
 import './index.css'
-
-const App = () => createElement('div', null, 'App')
+import App from './App'
 
 createRoot(document.getElementById('root')!).render(
-  createElement(
-    StrictMode,
-    null,
-    createElement(App, null),
-  ),
+  <StrictMode>
+    <App />
+  </StrictMode>,
 )
