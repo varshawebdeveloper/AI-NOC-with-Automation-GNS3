@@ -101,4 +101,10 @@ export default {
     },
   },
   plugins: [],
+  safelist: [
+    'ring-critical-200',
+    'ring-warning-200',
+    'ring-success-100',
+    'ring-primary-200',
+  ],
 }

@@ -76,7 +76,7 @@ export const TopNav: React.FC<TopNavProps> = ({ breadcrumbs = [] }) => {
             onClick={() => { setShowNotifs((v) => !v); setShowProfile(false); }}
             className="relative p-2 rounded-lg text-text-secondary hover:text-text-primary hover:bg-surface-secondary transition-colors"
           >
-            <Bell className="h-4.5 w-4.5" />
+            <Bell className="h-[18px] w-[18px]" />
             <span className="absolute -top-0.5 -right-0.5 bg-critical-600 text-white text-[9px] font-bold w-4 h-4 flex items-center justify-center rounded-full">
               3
             </span>

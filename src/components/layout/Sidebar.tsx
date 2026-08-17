@@ -24,13 +24,13 @@ interface NavItem {
 }
 
 const navItems: NavItem[] = [
-  { label: 'Dashboard',         href: ROUTES.DASHBOARD, icon: <LayoutDashboard className="h-4.5 w-4.5" /> },
-  { label: 'Network Topology',  href: ROUTES.TOPOLOGY,  icon: <Network className="h-4.5 w-4.5" /> },
-  { label: 'Alerts',            href: ROUTES.ALERTS,    icon: <Bell className="h-4.5 w-4.5" />, badge: 12 },
-  { label: 'Devices',           href: ROUTES.DEVICES,   icon: <Monitor className="h-4.5 w-4.5" /> },
-  { label: 'Analytics',         href: ROUTES.ANALYTICS, icon: <BarChart3 className="h-4.5 w-4.5" /> },
-  { label: 'Reports',           href: ROUTES.REPORTS,   icon: <FileText className="h-4.5 w-4.5" /> },
-  { label: 'Settings',          href: ROUTES.SETTINGS,  icon: <Settings className="h-4.5 w-4.5" /> },
+  { label: 'Dashboard',         href: ROUTES.DASHBOARD, icon: <LayoutDashboard className="h-[18px] w-[18px]" /> },
+  { label: 'Network Topology',  href: ROUTES.TOPOLOGY,  icon: <Network className="h-[18px] w-[18px]" /> },
+  { label: 'Alerts',            href: ROUTES.ALERTS,    icon: <Bell className="h-[18px] w-[18px]" />, badge: 12 },
+  { label: 'Devices',           href: ROUTES.DEVICES,   icon: <Monitor className="h-[18px] w-[18px]" /> },
+  { label: 'Analytics',         href: ROUTES.ANALYTICS, icon: <BarChart3 className="h-[18px] w-[18px]" /> },
+  { label: 'Reports',           href: ROUTES.REPORTS,   icon: <FileText className="h-[18px] w-[18px]" /> },
+  { label: 'Settings',          href: ROUTES.SETTINGS,  icon: <Settings className="h-[18px] w-[18px]" /> },
 ];
 
 interface SidebarProps {
