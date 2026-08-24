@@ -132,6 +132,3 @@ All service placeholders are in `src/services/`. To connect a backend:
 
 ---
 
-## 📄 License
-
-MIT © AI-NOC Team
