@@ -1,73 +1,183 @@
 /**
- * GNS3 Service – placeholder for GNS3 REST API integration
- * GNS3 Server REST API: http://localhost:3080/v2
- * Docs: https://gns3-server.readthedocs.io/en/latest/
+ * GNS3 Service
+ * Connects React frontend with GNS3 Server REST API
  *
- * TODO: Configure GNS3 server address in .env
- * TODO: Implement project discovery
- * TODO: Map GNS3 node types to AI-NOC device types
- * TODO: Sync real-time topology from GNS3 links + nodes
+ * GNS3 Server:
+ * http://localhost:3080/v2
  */
-// import apiClient from './api'; // The backend will proxy GNS3 calls
 
-const GNS3_URL = import.meta.env.VITE_GNS3_URL || 'http://localhost:3080/v2';
+const GNS3_URL =
+  import.meta.env.VITE_GNS3_URL || 'http://localhost:3080/v2';
+
+export interface GNS3Project {
+  project_id: string;
+  name: string;
+  status?: string;
+  filename?: string;
+}
+
+export interface GNS3Node {
+  node_id: string;
+  name: string;
+  node_type: string;
+  compute_id?: string;
+  status?: string;
+  console_type?: string;
+  console?: number | null;
+  x?: number;
+  y?: number;
+}
+
+export interface GNS3Link {
+  link_id: string;
+  nodes?: Array<{
+    node_id: string;
+    adapter_number?: number;
+    port_number?: number;
+  }>;
+}
+
+export interface AINOCDevice {
+  id: string;
+  name: string;
+  type: string;
+  status: string;
+  x?: number;
+  y?: number;
+  gns3Type: string;
+}
+
+/**
+ * Generic GET request
+ */
+async function get<T>(endpoint: string): Promise<T> {
+  const response = await fetch(`${GNS3_URL}${endpoint}`);
+
+  if (!response.ok) {
+    throw new Error(
+      `GNS3 API Error: ${response.status} ${response.statusText}`
+    );
+  }
+
+  return response.json();
+}
+
+/**
+ * Generic POST request
+ */
+async function post<T>(endpoint: string): Promise<T> {
+  const response = await fetch(`${GNS3_URL}${endpoint}`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+  });
+
+  if (!response.ok) {
+    throw new Error(
+      `GNS3 API Error: ${response.status} ${response.statusText}`
+    );
+  }
+
+  return response.json();
+}
 
 export const gns3Service = {
   /**
    * Get all GNS3 projects
-   * TODO: GET /v2/projects
+   *
+   * GET /v2/projects
    */
-  async getProjects() {
-    console.info(`[GNS3] Would fetch projects from ${GNS3_URL}/projects`);
-    return [];
+  async getProjects(): Promise<GNS3Project[]> {
+    return get<GNS3Project[]>('/projects');
   },
 
   /**
    * Get nodes in a GNS3 project
-   * TODO: GET /v2/projects/{project_id}/nodes
+   *
+   * GET /v2/projects/{project_id}/nodes
    */
-  async getProjectNodes(_projectId: string) {
-    console.info(`[GNS3] Would fetch nodes for project ${_projectId}`);
-    return [];
+  async getProjectNodes(
+    projectId: string
+  ): Promise<GNS3Node[]> {
+    return get<GNS3Node[]>(
+      `/projects/${projectId}/nodes`
+    );
   },
 
   /**
    * Get links in a GNS3 project
-   * TODO: GET /v2/projects/{project_id}/links
+   *
+   * GET /v2/projects/{project_id}/links
    */
-  async getProjectLinks(_projectId: string) {
-    console.info(`[GNS3] Would fetch links for project ${_projectId}`);
-    return [];
+  async getProjectLinks(
+    projectId: string
+  ): Promise<GNS3Link[]> {
+    return get<GNS3Link[]>(
+      `/projects/${projectId}/links`
+    );
   },
 
   /**
    * Start a GNS3 node
-   * TODO: POST /v2/projects/{project_id}/nodes/{node_id}/start
+   *
+   * POST /v2/projects/{project_id}/nodes/{node_id}/start
    */
-  async startNode(_projectId: string, _nodeId: string) {
-    console.info(`[GNS3] Would start node ${_nodeId}`);
+  async startNode(
+    projectId: string,
+    nodeId: string
+  ) {
+    return post(
+      `/projects/${projectId}/nodes/${nodeId}/start`
+    );
   },
 
   /**
    * Stop a GNS3 node
-   * TODO: POST /v2/projects/{project_id}/nodes/{node_id}/stop
+   *
+   * POST /v2/projects/{project_id}/nodes/{node_id}/stop
    */
-  async stopNode(_projectId: string, _nodeId: string) {
-    console.info(`[GNS3] Would stop node ${_nodeId}`);
+  async stopNode(
+    projectId: string,
+    nodeId: string
+  ) {
+    return post(
+      `/projects/${projectId}/nodes/${nodeId}/stop`
+    );
   },
 
   /**
-   * Map GNS3 node type to AI-NOC device type
+   * Convert GNS3 node type
+   * into AI-NOC device type.
    */
   mapNodeType(gns3Type: string): string {
     const typeMap: Record<string, string> = {
-      'ethernet_hub': 'switch',
-      'ethernet_switch': 'switch',
-      'router': 'router',
-      'vpcs': 'pc',
-      'cloud': 'router',
-      'firewall': 'firewall',
+      ethernet_hub: 'switch',
+      ethernet_switch: 'switch',
+      router: 'router',
+      vpcs: 'pc',
+      cloud: 'router',
+      firewall: 'firewall',
     };
+
     return typeMap[gns3Type] ?? 'pc';
+  },
+
+  /**
+   * Convert GNS3 nodes into
+   * AI-NOC dashboard devices.
+   */
+  mapNodesToDevices(
+    nodes: GNS3Node[]
+  ): AINOCDevice[] {
+    return nodes.map((node) => ({
+      id: node.node_id,
+      name: node.name,
+      type: this.mapNodeType(node.node_type),
+      status: node.status ?? 'unknown',
+      x: node.x,
+      y: node.y,
+      gns3Type: node.node_type,
+    }));
   },
 };

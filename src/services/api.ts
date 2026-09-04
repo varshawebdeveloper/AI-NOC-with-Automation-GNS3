@@ -1,43 +1,118 @@
 /**
- * API Service – Axios instance placeholder
- * TODO: Set baseURL to your Express backend URL
- * TODO: Add authentication token interceptor
- * TODO: Add response error handling interceptor
+ * API Service
+ * Connects React Dashboard with Python FastAPI backend
  */
-import axios, { type InternalAxiosRequestConfig, type AxiosResponse, type AxiosError } from 'axios';
 
-const BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:5000/api';
+import axios, {
+  type InternalAxiosRequestConfig,
+  type AxiosResponse,
+  type AxiosError,
+} from "axios";
+
+// --------------------------------------------------
+// API BASE URL
+// --------------------------------------------------
+
+const BASE_URL =
+  import.meta.env.VITE_API_BASE_URL || "http://127.0.0.1:8000";
+
+
+// --------------------------------------------------
+// AXIOS CLIENT
+// --------------------------------------------------
 
 export const apiClient = axios.create({
   baseURL: BASE_URL,
   timeout: 10000,
   headers: {
-    'Content-Type': 'application/json',
+    "Content-Type": "application/json",
   },
 });
 
-// Request interceptor – attach JWT token
+
+// --------------------------------------------------
+// REQUEST INTERCEPTOR
+// --------------------------------------------------
+
 apiClient.interceptors.request.use(
   (config: InternalAxiosRequestConfig) => {
-    const token = localStorage.getItem('auth_token');
-    if (token && config.headers) {
+
+    const token = localStorage.getItem("auth_token");
+
+    if (token) {
       config.headers.Authorization = `Bearer ${token}`;
     }
+
     return config;
   },
-  (error: AxiosError) => Promise.reject(error)
-);
 
-// Response interceptor – handle 401 / global errors
-apiClient.interceptors.response.use(
-  (response: AxiosResponse) => response,
   (error: AxiosError) => {
-    if (error.response?.status === 401) {
-      localStorage.removeItem('auth_token');
-      window.location.href = '/login';
-    }
     return Promise.reject(error);
   }
 );
+
+
+// --------------------------------------------------
+// RESPONSE INTERCEPTOR
+// --------------------------------------------------
+
+apiClient.interceptors.response.use(
+  (response: AxiosResponse) => {
+    return response;
+  },
+
+  (error: AxiosError) => {
+
+    if (error.response?.status === 401) {
+
+      localStorage.removeItem("auth_token");
+
+      window.location.href = "/login";
+    }
+
+    return Promise.reject(error);
+  }
+);
+
+
+// --------------------------------------------------
+// TRAFFIC DATA TYPE
+// --------------------------------------------------
+
+export interface TrafficData {
+  total_packets: number;
+  total_bytes: number;
+
+  icmp: number;
+  ospf: number;
+  tcp: number;
+  udp: number;
+  other: number;
+
+  risk: number;
+  threat: string;
+
+  top_source_ips: Record<string, number>;
+  top_destination_ips: Record<string, number>;
+}
+
+
+// --------------------------------------------------
+// GET TRAFFIC DATA
+// --------------------------------------------------
+
+export const getTrafficData = async (): Promise<TrafficData> => {
+
+  const response = await apiClient.get<TrafficData>(
+    "/api/traffic"
+  );
+
+  return response.data;
+};
+
+
+// --------------------------------------------------
+// DEFAULT EXPORT
+// --------------------------------------------------
 
 export default apiClient;

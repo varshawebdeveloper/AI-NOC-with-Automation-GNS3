@@ -1,24 +1,16 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import {
   Activity,
-  Monitor,
-  WifiOff,
-  AlertTriangle,
-  Cpu,
-  MemoryStick,
-  Wifi,
-  TrendingUp,
-  TrendingDown,
-  CheckCircle,
+  Network,
+  Package,
+  Radio,
+  ShieldAlert,
+  ShieldCheck,
 } from 'lucide-react';
-import { Card } from '../common/Card';
-import { ProgressBar } from '../common/ProgressBar';
-import { cn } from '../../utils';
-import type { KpiData } from '../../types';
 
-interface KpiCardsProps {
-  data: KpiData;
-}
+import { Card } from '../common/Card';
+import { cn } from '../../utils';
+import { getTrafficData, type TrafficData } from '../../services/api';
 
 interface KpiCard {
   id: string;
@@ -28,149 +20,251 @@ interface KpiCard {
   icon: React.ReactNode;
   iconBg: string;
   iconColor: string;
-  trend?: 'up' | 'down' | 'neutral';
-  trendText?: string;
-  progressValue?: number;
-  progressVariant?: 'primary' | 'teal' | 'auto';
   valueColor?: string;
 }
 
-export const KpiCards: React.FC<KpiCardsProps> = ({ data }) => {
+export const KpiCards: React.FC = () => {
+  const [trafficData, setTrafficData] = useState<TrafficData | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(false);
+
+  useEffect(() => {
+    let isMounted = true;
+
+    const fetchTrafficData = async () => {
+      try {
+        setLoading(true);
+        setError(false);
+
+        const data = await getTrafficData();
+
+        console.log('FastAPI Traffic Data:', data);
+
+        if (isMounted) {
+          setTrafficData(data);
+        }
+      } catch (err) {
+        console.error('Failed to fetch traffic data:', err);
+
+        if (isMounted) {
+          setError(true);
+          setTrafficData(null);
+        }
+      } finally {
+        if (isMounted) {
+          setLoading(false);
+        }
+      }
+    };
+
+    fetchTrafficData();
+
+    return () => {
+      isMounted = false;
+    };
+  }, []);
+
+  const getThreatStyles = () => {
+    if (loading) {
+      return {
+        iconBg: 'bg-surface-tertiary',
+        iconColor: 'text-text-secondary',
+        valueColor: 'text-text-primary',
+      };
+    }
+
+    const threat = trafficData?.threat?.toUpperCase();
+
+    if (threat === 'LOW') {
+      return {
+        iconBg: 'bg-success-100',
+        iconColor: 'text-success-600',
+        valueColor: 'text-success-600',
+      };
+    }
+
+    if (threat === 'MEDIUM') {
+      return {
+        iconBg: 'bg-warning-100',
+        iconColor: 'text-warning-600',
+        valueColor: 'text-warning-600',
+      };
+    }
+
+    if (threat === 'HIGH') {
+      return {
+        iconBg: 'bg-critical-100',
+        iconColor: 'text-critical-600',
+        valueColor: 'text-critical-600',
+      };
+    }
+
+    return {
+      iconBg: 'bg-surface-tertiary',
+      iconColor: 'text-text-secondary',
+      valueColor: 'text-text-primary',
+    };
+  };
+
+  const threatStyles = getThreatStyles();
+
   const cards: KpiCard[] = [
     {
-      id: 'health-score',
-      label: 'AI Health Score',
-      value: `${data.networkHealthScore}%`,
-      subtitle: 'Network Status: Excellent',
-      icon: <Activity className="h-5 w-5" />,
+      id: 'total-packets',
+      label: 'Total Packets',
+      value: loading ? '...' : trafficData?.total_packets ?? 0,
+      subtitle: error
+        ? 'Unable to fetch traffic data'
+        : 'Packets captured from PCAP',
+      icon: <Package className="h-5 w-5" />,
+      iconBg: 'bg-primary-100',
+      iconColor: 'text-primary-600',
+      valueColor: 'text-primary-600',
+    },
+
+    {
+      id: 'total-bytes',
+      label: 'Total Bytes',
+      value: loading ? '...' : trafficData?.total_bytes ?? 0,
+      subtitle: error
+        ? 'Unable to fetch traffic data'
+        : 'Total network traffic',
+      icon: <Network className="h-5 w-5" />,
       iconBg: 'bg-teal-100',
       iconColor: 'text-teal-600',
       valueColor: 'text-teal-600',
-      progressValue: data.networkHealthScore,
-      progressVariant: 'teal',
     },
+
     {
-      id: 'online-devices',
-      label: 'Online Devices',
-      value: data.onlineDevices,
-      subtitle: '+3 from yesterday',
-      icon: <Monitor className="h-5 w-5" />,
-      iconBg: 'bg-primary-100',
-      iconColor: 'text-primary-600',
-      valueColor: 'text-primary-600',
-      trend: 'up',
-      trendText: '+3',
-    },
-    {
-      id: 'offline-devices',
-      label: 'Offline Devices',
-      value: data.offlineDevices,
-      subtitle: 'Requires attention',
-      icon: <WifiOff className="h-5 w-5" />,
-      iconBg: 'bg-critical-100',
-      iconColor: 'text-critical-600',
-      valueColor: 'text-critical-600',
-      trend: 'down',
-      trendText: 'Action needed',
-    },
-    {
-      id: 'active-alerts',
-      label: 'Active Alerts',
-      value: data.activeAlerts,
-      subtitle: `${data.criticalAlerts} Critical · ${data.warningAlerts} Warning`,
-      icon: <AlertTriangle className="h-5 w-5" />,
-      iconBg: 'bg-warning-100',
-      iconColor: 'text-warning-600',
-      valueColor: 'text-warning-600',
-    },
-    {
-      id: 'cpu-average',
-      label: 'CPU Average',
-      value: `${data.cpuAverage}%`,
-      subtitle: 'Across all devices',
-      icon: <Cpu className="h-5 w-5" />,
-      iconBg: 'bg-surface-tertiary',
-      iconColor: 'text-text-secondary',
-      progressValue: data.cpuAverage,
-      progressVariant: 'auto',
-    },
-    {
-      id: 'ram-average',
-      label: 'RAM Average',
-      value: `${data.ramAverage}%`,
-      subtitle: 'Across all devices',
-      icon: <MemoryStick className="h-5 w-5" />,
-      iconBg: 'bg-surface-tertiary',
-      iconColor: 'text-text-secondary',
-      progressValue: data.ramAverage,
-      progressVariant: 'auto',
-    },
-    {
-      id: 'bandwidth',
-      label: 'Bandwidth',
-      value: data.bandwidth,
-      subtitle: 'Peak: 3.1 Gbps today',
-      icon: <Wifi className="h-5 w-5" />,
-      iconBg: 'bg-primary-100',
-      iconColor: 'text-primary-600',
-      valueColor: 'text-primary-600',
-      trend: 'neutral',
-    },
-    {
-      id: 'uptime',
-      label: 'Uptime',
-      value: `${data.uptime}%`,
-      subtitle: '30-day average',
-      icon: <CheckCircle className="h-5 w-5" />,
+      id: 'icmp',
+      label: 'ICMP Packets',
+      value: loading ? '...' : trafficData?.icmp ?? 0,
+      subtitle: 'ICMP traffic detected',
+      icon: <Radio className="h-5 w-5" />,
       iconBg: 'bg-success-100',
       iconColor: 'text-success-600',
       valueColor: 'text-success-600',
-      trend: 'up',
-      trendText: 'Excellent',
+    },
+
+    {
+      id: 'ospf',
+      label: 'OSPF Packets',
+      value: loading ? '...' : trafficData?.ospf ?? 0,
+      subtitle: 'OSPF routing traffic',
+      icon: <Activity className="h-5 w-5" />,
+      iconBg: 'bg-primary-100',
+      iconColor: 'text-primary-600',
+      valueColor: 'text-primary-600',
+    },
+
+    {
+      id: 'risk-score',
+      label: 'Risk Score',
+      value: loading ? '...' : trafficData?.risk ?? 0,
+      subtitle: error
+        ? 'Unable to calculate risk'
+        : trafficData?.risk === 0
+          ? 'Network risk is low'
+          : (trafficData?.risk ?? 0) < 40
+            ? 'Low network risk'
+            : (trafficData?.risk ?? 0) < 70
+              ? 'Medium network risk'
+              : 'High network risk',
+      icon: <ShieldAlert className="h-5 w-5" />,
+      iconBg:
+        trafficData?.risk !== undefined && trafficData.risk >= 70
+          ? 'bg-critical-100'
+          : trafficData?.risk !== undefined && trafficData.risk >= 40
+            ? 'bg-warning-100'
+            : 'bg-success-100',
+      iconColor:
+        trafficData?.risk !== undefined && trafficData.risk >= 70
+          ? 'text-critical-600'
+          : trafficData?.risk !== undefined && trafficData.risk >= 40
+            ? 'text-warning-600'
+            : 'text-success-600',
+      valueColor:
+        trafficData?.risk !== undefined && trafficData.risk >= 70
+          ? 'text-critical-600'
+          : trafficData?.risk !== undefined && trafficData.risk >= 40
+            ? 'text-warning-600'
+            : 'text-success-600',
+    },
+
+    {
+      id: 'threat',
+      label: 'Threat Level',
+      value: loading ? '...' : trafficData?.threat ?? 'UNKNOWN',
+      subtitle: error
+        ? 'Unable to fetch traffic data'
+        : 'Current network threat status',
+      icon: <ShieldCheck className="h-5 w-5" />,
+      iconBg: threatStyles.iconBg,
+      iconColor: threatStyles.iconColor,
+      valueColor: threatStyles.valueColor,
+    },
+
+    {
+      id: 'tcp',
+      label: 'TCP Packets',
+      value: loading ? '...' : trafficData?.tcp ?? 0,
+      subtitle: 'TCP traffic detected',
+      icon: <Network className="h-5 w-5" />,
+      iconBg: 'bg-surface-tertiary',
+      iconColor: 'text-text-secondary',
+      valueColor: 'text-text-primary',
+    },
+
+    {
+      id: 'udp',
+      label: 'UDP Packets',
+      value: loading ? '...' : trafficData?.udp ?? 0,
+      subtitle: 'UDP traffic detected',
+      icon: <Radio className="h-5 w-5" />,
+      iconBg: 'bg-surface-tertiary',
+      iconColor: 'text-text-secondary',
+      valueColor: 'text-text-primary',
     },
   ];
 
   return (
     <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
       {cards.map((card) => (
-        <Card key={card.id} className="relative overflow-hidden group hover:shadow-card-md transition-shadow duration-200">
+        <Card
+          key={card.id}
+          className="relative overflow-hidden group hover:shadow-card-md transition-shadow duration-200"
+        >
           <div className="flex items-start justify-between mb-3">
             <div>
-              <p className="text-xs text-text-muted font-medium">{card.label}</p>
-              <p className={cn('text-2xl font-bold mt-1', card.valueColor ?? 'text-text-primary')}>
+              <p className="text-xs text-text-muted font-medium">
+                {card.label}
+              </p>
+
+              <p
+                className={cn(
+                  'text-2xl font-bold mt-1',
+                  card.valueColor ?? 'text-text-primary'
+                )}
+              >
                 {card.value}
               </p>
             </div>
-            <div className={cn('p-2.5 rounded-xl flex-shrink-0', card.iconBg)}>
-              <span className={card.iconColor}>{card.icon}</span>
+
+            <div
+              className={cn(
+                'p-2.5 rounded-xl flex-shrink-0',
+                card.iconBg
+              )}
+            >
+              <span className={card.iconColor}>
+                {card.icon}
+              </span>
             </div>
           </div>
 
-          {card.progressValue !== undefined ? (
-            <ProgressBar
-              value={card.progressValue}
-              size="sm"
-              variant={card.progressVariant ?? 'primary'}
-            />
-          ) : (
-            <div className="flex items-center gap-1.5">
-              {card.trend === 'up' && <TrendingUp className="h-3 w-3 text-success-600" />}
-              {card.trend === 'down' && <TrendingDown className="h-3 w-3 text-critical-600" />}
-              <p className="text-xs text-text-muted">{card.subtitle}</p>
-              {card.trendText && (
-                <span className={cn(
-                  'text-xs font-semibold ml-1',
-                  card.trend === 'up' ? 'text-success-600' : card.trend === 'down' ? 'text-critical-600' : 'text-text-secondary'
-                )}>
-                  {card.trendText}
-                </span>
-              )}
-            </div>
-          )}
-
-          {card.progressValue !== undefined && (
-            <p className="text-xs text-text-muted mt-1.5">{card.subtitle}</p>
-          )}
+          <p className="text-xs text-text-muted">
+            {card.subtitle}
+          </p>
         </Card>
       ))}
     </div>

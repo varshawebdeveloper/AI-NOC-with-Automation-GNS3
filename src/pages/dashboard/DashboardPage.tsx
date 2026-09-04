@@ -9,8 +9,6 @@ import { QuickActions } from '../../components/dashboard/QuickActions';
 import { ActivityFeed } from '../../components/dashboard/ActivityFeed';
 
 import {
-  kpiData,
-  trafficData,
   deviceDistribution,
   recentAlerts,
   activityFeed,
@@ -37,20 +35,20 @@ const DashboardPage: React.FC = () => {
         </div>
 
         {/* KPI Cards */}
-        <KpiCards data={kpiData} />
+        <KpiCards />
 
         {/* Main content area */}
         <div className="grid grid-cols-1 gap-6 xl:grid-cols-3">
 
           {/* Left column – charts and alerts */}
           <div className="space-y-6 xl:col-span-2">
-            <TrafficChart data={trafficData} />
+            <TrafficChart />
             <RecentAlerts alerts={recentAlerts} maxRows={6} />
           </div>
 
           {/* Right column – widgets */}
           <div className="space-y-6">
-            <AIHealthScore score={kpiData.networkHealthScore} />
+            <AIHealthScore />
             <DeviceDistributionChart data={deviceDistribution} />
             <QuickActions />
             <ActivityFeed items={activityFeed} />
