@@ -13,6 +13,7 @@ const ForgotPasswordPage  = lazy(() => import('../pages/auth/ForgotPasswordPage'
 const SessionReadyPage    = lazy(() => import('../pages/auth/SessionReadyPage'));
 const DashboardPage       = lazy(() => import('../pages/dashboard/DashboardPage'));
 const TopologyPage        = lazy(() => import('../pages/topology/TopologyPage'));
+const AlertsPage         = lazy(() => import('../pages/alerts/AlertsPage'));
 
 const PageFallback = () => (
   <div className="min-h-screen flex items-center justify-center bg-surface-secondary">
@@ -56,16 +57,12 @@ export const AppRoutes: React.FC = () => (
               }
             />
             <Route
-              path={ROUTES.ALERTS}
-              element={
-                <ProtectedRoute>
-                  <PlaceholderPage
-                    title="Alert Management"
-                    description="Full alert management with filtering, acknowledgment, and escalation rules. Coming in Phase 2."
-                    breadcrumbs={[{ label: 'Alerts' }]}
-                  />
-                </ProtectedRoute>
-              }
+               path={ROUTES.ALERTS}
+               element={
+              <ProtectedRoute>
+                <AlertsPage />
+              </ProtectedRoute>
+             }
             />
             <Route
               path={ROUTES.DEVICES}

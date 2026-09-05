@@ -1,34 +1,113 @@
 /**
- * Alert Service – placeholder for Express + MongoDB
- * TODO: Connect to GET  /api/alerts
- * TODO: Connect to PUT  /api/alerts/:id/acknowledge
- * TODO: Connect to DELETE /api/alerts/:id
+ * Alert Service
+ * Connects the React dashboard to the FastAPI traffic analyzer.
  */
-// import apiClient from './api';
-import { recentAlerts, activityFeed } from '../data/dashboardData';
+
+import apiClient from './api';
+
+export interface Alert {
+  id: string;
+  threat: string;
+  severity: 'LOW' | 'MEDIUM' | 'HIGH' | 'CRITICAL';
+  risk_score: number;
+  description?: string;
+  source_ip?: string;
+  destination_ip?: string;
+  protocol?: string;
+  timestamp: string;
+  status: 'ACTIVE' | 'RESOLVED';
+}
 
 export const alertService = {
-  async getAlerts() {
-    // TODO: return apiClient.get('/alerts').then(r => r.data)
-    await new Promise((r) => setTimeout(r, 400));
-    return recentAlerts;
+  /**
+   * Get live threat information from FastAPI.
+   *
+   * Backend endpoint:
+   * GET /api/traffic
+   */
+  async getAlerts(): Promise<Alert[]> {
+    try {
+      const response = await apiClient.get('/api/traffic');
+
+      const data = response.data;
+
+      const threats = Array.isArray(data.threats)
+        ? data.threats
+        : [];
+
+      return threats.map((item: any, index: number) => ({
+        id: `threat-${index}`,
+
+        threat:
+          item.type ||
+          'Unknown Threat',
+
+        severity:
+          item.severity ||
+          'LOW',
+
+        risk_score:
+          Number(data.risk ?? 0),
+
+        description:
+          item.description ||
+          'Suspicious network activity detected.',
+
+        timestamp:
+          new Date().toISOString(),
+
+        status: 'ACTIVE',
+      }));
+    } catch (error) {
+      console.error(
+        'Failed to fetch threat alerts:',
+        error
+      );
+
+      return [];
+    }
   },
 
+  /**
+   * Acknowledge an alert.
+   *
+   * Not implemented in the current FastAPI backend.
+   */
   async acknowledgeAlert(id: string) {
-    // TODO: return apiClient.put(`/alerts/${id}/acknowledge`).then(r => r.data)
-    await new Promise((r) => setTimeout(r, 300));
-    return { id, acknowledged: true };
+    console.warn(
+      `Acknowledge API is not implemented yet for alert ${id}`
+    );
+
+    return {
+      id,
+      acknowledged: true,
+    };
   },
 
+  /**
+   * Delete an alert.
+   *
+   * Not implemented in the current FastAPI backend.
+   */
   async deleteAlert(id: string) {
-    // TODO: return apiClient.delete(`/alerts/${id}`).then(r => r.data)
-    await new Promise((r) => setTimeout(r, 300));
-    return { id, deleted: true };
+    console.warn(
+      `Delete API is not implemented yet for alert ${id}`
+    );
+
+    return {
+      id,
+      deleted: true,
+    };
   },
 
+  /**
+   * Activity feed.
+   *
+   * Not implemented in the current FastAPI backend.
+   */
   async getActivityFeed() {
-    // TODO: return apiClient.get('/alerts/activity').then(r => r.data)
-    await new Promise((r) => setTimeout(r, 300));
-    return activityFeed;
+    return [];
   },
 };
+
+export default alertService;

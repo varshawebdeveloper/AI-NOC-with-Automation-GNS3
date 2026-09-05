@@ -16,7 +16,6 @@ import axios, {
 const BASE_URL =
   import.meta.env.VITE_API_BASE_URL || "http://127.0.0.1:8000";
 
-
 // --------------------------------------------------
 // AXIOS CLIENT
 // --------------------------------------------------
@@ -29,14 +28,12 @@ export const apiClient = axios.create({
   },
 });
 
-
 // --------------------------------------------------
 // REQUEST INTERCEPTOR
 // --------------------------------------------------
 
 apiClient.interceptors.request.use(
   (config: InternalAxiosRequestConfig) => {
-
     const token = localStorage.getItem("auth_token");
 
     if (token) {
@@ -51,7 +48,6 @@ apiClient.interceptors.request.use(
   }
 );
 
-
 // --------------------------------------------------
 // RESPONSE INTERCEPTOR
 // --------------------------------------------------
@@ -62,11 +58,8 @@ apiClient.interceptors.response.use(
   },
 
   (error: AxiosError) => {
-
     if (error.response?.status === 401) {
-
       localStorage.removeItem("auth_token");
-
       window.location.href = "/login";
     }
 
@@ -74,10 +67,15 @@ apiClient.interceptors.response.use(
   }
 );
 
-
 // --------------------------------------------------
 // TRAFFIC DATA TYPE
 // --------------------------------------------------
+
+export interface TrafficThreat {
+  type: string;
+  severity: string;
+  description: string;
+}
 
 export interface TrafficData {
   total_packets: number;
@@ -92,24 +90,23 @@ export interface TrafficData {
   risk: number;
   threat: string;
 
+  threats: TrafficThreat[];
+
   top_source_ips: Record<string, number>;
   top_destination_ips: Record<string, number>;
 }
-
 
 // --------------------------------------------------
 // GET TRAFFIC DATA
 // --------------------------------------------------
 
 export const getTrafficData = async (): Promise<TrafficData> => {
-
   const response = await apiClient.get<TrafficData>(
     "/api/traffic"
   );
 
   return response.data;
 };
-
 
 // --------------------------------------------------
 // DEFAULT EXPORT
