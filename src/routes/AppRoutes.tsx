@@ -2,6 +2,7 @@ import React, { lazy, Suspense } from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider } from '../context/AuthContext';
 import { ToastProvider } from '../components/common/Toast';
+import { GNS3Provider } from '../context/GNS3Context';
 import { ProtectedRoute } from './ProtectedRoute';
 import { LoadingOverlay } from '../components/common/Spinner';
 import { ROUTES } from '../constants/theme';
@@ -25,6 +26,7 @@ export const AppRoutes: React.FC = () => (
   <BrowserRouter>
     <AuthProvider>
       <ToastProvider>
+        <GNS3Provider>
         <Suspense fallback={<PageFallback />}>
           <Routes>
             {/* Auth routes */}
@@ -118,6 +120,7 @@ export const AppRoutes: React.FC = () => (
             <Route path="*" element={<Navigate to={ROUTES.DASHBOARD} replace />} />
           </Routes>
         </Suspense>
+        </GNS3Provider>
       </ToastProvider>
     </AuthProvider>
   </BrowserRouter>

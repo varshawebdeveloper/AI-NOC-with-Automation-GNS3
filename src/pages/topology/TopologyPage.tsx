@@ -1,4 +1,4 @@
-import React, { useState, useCallback, useMemo, useEffect, useRef } from 'react';
+import React, { useState, useCallback, useMemo } from 'react';
 import ReactFlow, {
   Background,
   Controls,
@@ -19,14 +19,15 @@ import { GNS3StatusBadge } from '../../components/topology/GNS3StatusBadge';
 import { SearchBar } from '../../components/common/SearchBar';
 import { topologyNodes as demoNodes, topologyEdges as demoEdges } from '../../data/topologyData';
 import type { TopologyNode as TopologyNodeType, DeviceType, DeviceStatus } from '../../types';
-import { gns3Service, type GNS3Project, type MappedNode, type MappedEdge } from '../../services/gns3Service';
+import { useGNS3 } from '../../context/GNS3Context';
+import type { MappedNode, MappedEdge } from '../../services/gns3Service';
 import { cn } from '../../utils';
 
 // ─── Converters ────────────────────────────────────────────────────────────────
 
 const toRFNodes = (nodes: (TopologyNodeType | MappedNode)[]): Node<TopologyNodeData>[] =>
   nodes.map((n) => ({
-    id: n.id,
+    id:   n.id,
     type: 'default',
     position: n.position,
     data: {
@@ -42,14 +43,14 @@ const toRFNodes = (nodes: (TopologyNodeType | MappedNode)[]): Node<TopologyNodeD
 
 const toRFEdges = (edges: (typeof demoEdges[0] | MappedEdge)[]): Edge[] =>
   edges.map((e) => ({
-    id:         e.id,
-    source:     e.source,
-    target:     e.target,
-    label:      ('bandwidth' in e ? e.bandwidth : undefined),
-    style:      { stroke: '#cbd5e1', strokeWidth: 1.5 },
-    labelStyle: { fontSize: 9, fill: '#94a3b8' },
+    id:           e.id,
+    source:       e.source,
+    target:       e.target,
+    label:        ('bandwidth' in e ? e.bandwidth : undefined),
+    style:        { stroke: '#cbd5e1', strokeWidth: 1.5 },
+    labelStyle:   { fontSize: 9, fill: '#94a3b8' },
     labelBgStyle: { fill: '#f8fafc' },
-    animated: false,
+    animated:     false,
   }));
 
 // ─── Filter constants ──────────────────────────────────────────────────────────
@@ -70,31 +71,30 @@ const STATUS_FILTERS: { status: DeviceStatus | 'all'; label: string; dot: string
   { status: 'offline', label: 'Offline',    dot: 'bg-critical-600' },
 ];
 
-const REFRESH_INTERVAL_MS = 15000; // auto-refresh every 15 seconds
-
 // ─── Component ────────────────────────────────────────────────────────────────
 
 const TopologyPage: React.FC = () => {
-  // ── GNS3 state ──
-  const [gns3Connected, setGns3Connected]   = useState(false);
-  const [gns3Loading, setGns3Loading]       = useState(true);
-  const [projects, setProjects]             = useState<GNS3Project[]>([]);
-  const [selectedProject, setSelectedProject] = useState<GNS3Project | null>(null);
+  // ── Consume shared GNS3 context (no separate polling here) ──────────────────
+  const {
+    connected, loading: gns3Loading,
+    projects, selectedProject, setSelectedProject,
+    nodes: liveNodes, edges: liveEdges,
+    onlineCount, offlineCount, warningCount,
+    refresh,
+  } = useGNS3();
+
   const [showProjectDrop, setShowProjectDrop] = useState(false);
-  const dropRef                              = useRef<HTMLDivElement>(null);
 
-  // ── Live node/edge data ──
-  const [liveNodes, setLiveNodes] = useState<MappedNode[]>([]);
-  const [liveEdges, setLiveEdges] = useState<MappedEdge[]>([]);
-  const usingLive                 = gns3Connected && liveNodes.length > 0;
-
-  // ── Active node/edge source ──
-  const activeNodes = usingLive ? liveNodes : demoNodes;
-  const activeEdges = usingLive ? liveEdges : demoEdges;
+  // Use live GNS3 data if connected and nodes available, else demo data
+  const usingLive  = connected && liveNodes.length > 0;
+  const activeNodes: (TopologyNodeType | MappedNode)[] = usingLive ? liveNodes : demoNodes;
+  const activeEdges: (typeof demoEdges[0] | MappedEdge)[] = usingLive ? liveEdges : demoEdges;
 
   // ── React Flow state ──
-  const [nodes, , onNodesChange] = useNodesState<TopologyNodeData>(toRFNodes(activeNodes));
-  const [edges, , onEdgesChange] = useEdgesState(toRFEdges(activeEdges));
+  const rfNodes = useMemo(() => toRFNodes(activeNodes), [activeNodes]);
+  const rfEdges = useMemo(() => toRFEdges(activeEdges), [activeEdges]);
+  const [, , onNodesChange] = useNodesState<TopologyNodeData>(rfNodes);
+  const [, , onEdgesChange] = useEdgesState(rfEdges);
 
   // ── UI filter state ──
   const [selectedNode, setSelectedNode] = useState<TopologyNodeType | MappedNode | null>(null);
@@ -102,123 +102,45 @@ const TopologyPage: React.FC = () => {
   const [typeFilter, setTypeFilter]     = useState<DeviceType | 'all'>('all');
   const [statusFilter, setStatusFilter] = useState<DeviceStatus | 'all'>('all');
 
-  // ── Close dropdown on outside click ──
-  useEffect(() => {
-    const handler = (e: MouseEvent) => {
-      if (dropRef.current && !dropRef.current.contains(e.target as Node)) {
-        setShowProjectDrop(false);
-      }
-    };
-    document.addEventListener('mousedown', handler);
-    return () => document.removeEventListener('mousedown', handler);
-  }, []);
-
-  // ── Fetch live topology from GNS3 ──
-  const fetchTopology = useCallback(async (project: GNS3Project) => {
-    try {
-      const [gns3NodeList, gns3LinkList] = await Promise.all([
-        gns3Service.getProjectNodes(project.project_id),
-        gns3Service.getProjectLinks(project.project_id),
-      ]);
-      setLiveNodes(gns3Service.mapNodes(gns3NodeList));
-      setLiveEdges(gns3Service.mapLinks(gns3LinkList));
-    } catch {
-      setLiveNodes([]);
-      setLiveEdges([]);
-    }
-  }, []);
-
-  // ── Initial GNS3 connection + project list ──
-  const connectToGns3 = useCallback(async () => {
-    setGns3Loading(true);
-    const ok = await gns3Service.ping();
-    setGns3Connected(ok);
-
-    if (ok) {
-      try {
-        const projectList = await gns3Service.getProjects();
-        const opened = projectList.filter((p) => p.status === 'opened');
-        setProjects(projectList);
-
-        const first = opened[0] ?? projectList[0] ?? null;
-        if (first) {
-          setSelectedProject(first);
-          await fetchTopology(first);
-        }
-      } catch {
-        setGns3Connected(false);
-      }
-    }
-    setGns3Loading(false);
-  }, [fetchTopology]);
-
-  useEffect(() => {
-    connectToGns3();
-  }, [connectToGns3]);
-
-  // ── Auto-refresh every 15s when connected ──
-  useEffect(() => {
-    if (!gns3Connected || !selectedProject) return;
-    const id = setInterval(() => fetchTopology(selectedProject), REFRESH_INTERVAL_MS);
-    return () => clearInterval(id);
-  }, [gns3Connected, selectedProject, fetchTopology]);
-
-  // ── Switch project ──
-  const handleSelectProject = useCallback(async (project: GNS3Project) => {
-    setSelectedProject(project);
-    setShowProjectDrop(false);
-    if (gns3Connected) await fetchTopology(project);
-  }, [gns3Connected, fetchTopology]);
-
-  // ── Manual refresh ──
-  const handleRefresh = useCallback(() => {
-    if (selectedProject) fetchTopology(selectedProject);
-    else connectToGns3();
-  }, [selectedProject, fetchTopology, connectToGns3]);
-
-  // ── Update React Flow when live data changes ──
-  const rfNodes = useMemo(() => toRFNodes(activeNodes), [activeNodes]);
-  const rfEdges = useMemo(() => toRFEdges(activeEdges), [activeEdges]);
-
-  // ── Filters ──
+  // ── Filters ──────────────────────────────────────────────────────────────────
   const filteredNodeIds = useMemo(() => {
     return activeNodes
       .filter((n) => {
-        const matchesSearch =
+        const matchSearch =
           !search ||
           n.label.toLowerCase().includes(search.toLowerCase()) ||
           n.ipAddress.includes(search);
-        const matchesType   = typeFilter === 'all' || n.type === typeFilter;
-        const matchesStatus = statusFilter === 'all' || n.status === statusFilter;
-        return matchesSearch && matchesType && matchesStatus;
+        const matchType   = typeFilter === 'all' || n.type === typeFilter;
+        const matchStatus = statusFilter === 'all' || n.status === statusFilter;
+        return matchSearch && matchType && matchStatus;
       })
       .map((n) => n.id);
   }, [activeNodes, search, typeFilter, statusFilter]);
 
   const visibleNodes = useMemo(
-    () =>
-      rfNodes.map((n) => ({
-        ...n,
-        style: filteredNodeIds.includes(n.id) ? {} : { opacity: 0.15 },
-      })),
-    [rfNodes, filteredNodeIds]
+    () => rfNodes.map((n) => ({
+      ...n,
+      style: filteredNodeIds.includes(n.id) ? {} : { opacity: 0.15 },
+    })),
+    [rfNodes, filteredNodeIds],
   );
 
   const onNodeClick = useCallback(
-    (_event: React.MouseEvent, node: Node<TopologyNodeData>) => {
+    (_e: React.MouseEvent, node: Node<TopologyNodeData>) => {
       const found = activeNodes.find((n) => n.id === node.id);
       setSelectedNode(found ?? null);
     },
-    [activeNodes]
+    [activeNodes],
   );
 
-  const statusCounts = useMemo(() => ({
-    online:  activeNodes.filter((n) => n.status === 'online').length,
-    warning: activeNodes.filter((n) => n.status === 'warning').length,
-    offline: activeNodes.filter((n) => n.status === 'offline').length,
-  }), [activeNodes]);
-
-  // ─────────────────────────────────────────────────────────────────────────────
+  // Use GNS3 context counts when live, else compute from demo
+  const counts = usingLive
+    ? { online: onlineCount, warning: warningCount, offline: offlineCount }
+    : {
+        online:  demoNodes.filter((n) => n.status === 'online').length,
+        warning: demoNodes.filter((n) => n.status === 'warning').length,
+        offline: demoNodes.filter((n) => n.status === 'offline').length,
+      };
 
   return (
     <AppLayout breadcrumbs={[{ label: 'Network Topology' }]}>
@@ -241,82 +163,72 @@ const TopologyPage: React.FC = () => {
             </div>
           </div>
 
-          {/* GNS3 Status + Project Selector */}
-          <div className="flex items-center gap-2">
-            <GNS3StatusBadge
-              connected={gns3Connected}
-              loading={gns3Loading}
-              projectName={selectedProject?.name}
-              onRefresh={handleRefresh}
-            />
-
-            {/* Project dropdown */}
-            {gns3Connected && projects.length > 0 && (
-              <div ref={dropRef} className="relative">
-                <button
-                  onClick={() => setShowProjectDrop((v) => !v)}
-                  className="flex items-center gap-1.5 px-3 py-1.5 bg-surface-secondary border border-border rounded-full text-[11px] font-medium text-text-secondary hover:text-text-primary hover:bg-surface-tertiary transition-colors"
-                >
-                  {selectedProject?.name ?? 'Select Project'}
-                  <ChevronDown className={cn('h-3 w-3 transition-transform', showProjectDrop && 'rotate-180')} />
-                </button>
-
-                {showProjectDrop && (
-                  <div className="absolute left-0 top-full mt-1 w-56 bg-white border border-border rounded-card shadow-card-lg z-50 animate-fade-in overflow-hidden">
-                    <div className="px-3 py-2 border-b border-border">
-                      <p className="text-[10px] font-semibold text-text-muted uppercase tracking-wider">GNS3 Projects</p>
-                    </div>
-                    <div className="max-h-48 overflow-y-auto">
-                      {projects.map((p) => (
-                        <button
-                          key={p.project_id}
-                          onClick={() => handleSelectProject(p)}
-                          className={cn(
-                            'flex items-center justify-between w-full px-3 py-2.5 text-xs text-left transition-colors',
-                            selectedProject?.project_id === p.project_id
-                              ? 'bg-primary-50 text-primary-600 font-semibold'
-                              : 'text-text-secondary hover:bg-surface-secondary hover:text-text-primary'
-                          )}
-                        >
-                          <span className="truncate">{p.name}</span>
-                          <span className={cn(
-                            'ml-2 flex-shrink-0 text-[9px] font-bold px-1.5 py-0.5 rounded-full',
-                            p.status === 'opened'
-                              ? 'bg-success-50 text-success-600'
-                              : 'bg-surface-tertiary text-text-muted'
-                          )}>
-                            {p.status === 'opened' ? 'Open' : 'Closed'}
-                          </span>
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-                )}
-              </div>
-            )}
-
-            {/* Manual refresh button */}
-            {gns3Connected && (
-              <button
-                onClick={handleRefresh}
-                className="p-1.5 rounded-lg text-text-muted hover:text-primary-600 hover:bg-primary-50 transition-colors"
-                title="Refresh topology"
-              >
-                <RefreshCw className="h-3.5 w-3.5" />
-              </button>
-            )}
-          </div>
-
-          {/* Search */}
-          <SearchBar
-            value={search}
-            onChange={setSearch}
-            placeholder="Search device or IP..."
-            size="sm"
-            className="w-48"
+          {/* GNS3 status badge */}
+          <GNS3StatusBadge
+            connected={connected}
+            loading={gns3Loading}
+            projectName={selectedProject?.name}
+            onRefresh={refresh}
           />
 
-          {/* Type filter */}
+          {/* Project dropdown */}
+          {connected && projects.length > 0 && (
+            <div className="relative">
+              <button
+                onClick={() => setShowProjectDrop((v) => !v)}
+                className="flex items-center gap-1.5 px-3 py-1.5 bg-surface-secondary border border-border rounded-full text-[11px] font-medium text-text-secondary hover:text-text-primary hover:bg-surface-tertiary transition-colors"
+              >
+                {selectedProject?.name ?? 'Select Project'}
+                <ChevronDown className={cn('h-3 w-3 transition-transform', showProjectDrop && 'rotate-180')} />
+              </button>
+
+              {showProjectDrop && (
+                <div className="absolute left-0 top-full mt-1 w-56 bg-white border border-border rounded-card shadow-card-lg z-50 overflow-hidden">
+                  <div className="px-3 py-2 border-b border-border">
+                    <p className="text-[10px] font-semibold text-text-muted uppercase tracking-wider">GNS3 Projects</p>
+                  </div>
+                  <div className="max-h-48 overflow-y-auto">
+                    {projects.map((p) => (
+                      <button
+                        key={p.project_id}
+                        onClick={() => { setSelectedProject(p); setShowProjectDrop(false); }}
+                        className={cn(
+                          'flex items-center justify-between w-full px-3 py-2.5 text-xs text-left transition-colors',
+                          selectedProject?.project_id === p.project_id
+                            ? 'bg-primary-50 text-primary-600 font-semibold'
+                            : 'text-text-secondary hover:bg-surface-secondary',
+                        )}
+                      >
+                        <span className="truncate">{p.name}</span>
+                        <span className={cn(
+                          'ml-2 flex-shrink-0 text-[9px] font-bold px-1.5 py-0.5 rounded-full',
+                          p.status === 'opened' ? 'bg-success-50 text-success-600' : 'bg-surface-tertiary text-text-muted',
+                        )}>
+                          {p.status === 'opened' ? 'Open' : 'Closed'}
+                        </span>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* Manual refresh */}
+          {connected && (
+            <button
+              onClick={refresh}
+              className="p-1.5 rounded-lg text-text-muted hover:text-primary-600 hover:bg-primary-50 transition-colors"
+              title="Refresh topology"
+            >
+              <RefreshCw className="h-3.5 w-3.5" />
+            </button>
+          )}
+
+          {/* Search */}
+          <SearchBar value={search} onChange={setSearch} placeholder="Search device or IP..." size="sm" className="w-48" />
+
+          {/* Type filters */}
           <div className="flex items-center gap-1 flex-wrap">
             <Filter className="h-3.5 w-3.5 text-text-muted" />
             {DEVICE_TYPE_FILTERS.map((f) => (
@@ -327,7 +239,7 @@ const TopologyPage: React.FC = () => {
                   'px-2.5 py-1 text-[11px] font-medium rounded-full transition-colors',
                   typeFilter === f.type
                     ? 'bg-primary-600 text-white'
-                    : 'bg-surface-secondary text-text-secondary hover:bg-surface-tertiary'
+                    : 'bg-surface-secondary text-text-secondary hover:bg-surface-tertiary',
                 )}
               >
                 {f.label}
@@ -335,10 +247,9 @@ const TopologyPage: React.FC = () => {
             ))}
           </div>
 
-          {/* Divider */}
           <div className="h-5 w-px bg-border" />
 
-          {/* Status filter */}
+          {/* Status filters */}
           <div className="flex items-center gap-1 flex-wrap">
             {STATUS_FILTERS.map((f) => (
               <button
@@ -348,7 +259,7 @@ const TopologyPage: React.FC = () => {
                   'flex items-center gap-1.5 px-2.5 py-1 text-[11px] font-medium rounded-full transition-colors',
                   statusFilter === f.status
                     ? 'bg-surface-tertiary border border-border-strong text-text-primary'
-                    : 'text-text-secondary hover:bg-surface-secondary'
+                    : 'text-text-secondary hover:bg-surface-secondary',
                 )}
               >
                 <span className={cn('w-1.5 h-1.5 rounded-full', f.dot)} />
@@ -360,21 +271,18 @@ const TopologyPage: React.FC = () => {
           {/* Status summary */}
           <div className="ml-auto flex items-center gap-3">
             <span className="flex items-center gap-1 text-[10px] text-success-600 font-medium">
-              <span className="w-1.5 h-1.5 rounded-full bg-success-600" />
-              {statusCounts.online} online
+              <span className="w-1.5 h-1.5 rounded-full bg-success-600" />{counts.online} online
             </span>
             <span className="flex items-center gap-1 text-[10px] text-warning-600 font-medium">
-              <span className="w-1.5 h-1.5 rounded-full bg-warning-500" />
-              {statusCounts.warning} warning
+              <span className="w-1.5 h-1.5 rounded-full bg-warning-500" />{counts.warning} warning
             </span>
             <span className="flex items-center gap-1 text-[10px] text-critical-600 font-medium">
-              <span className="w-1.5 h-1.5 rounded-full bg-critical-600" />
-              {statusCounts.offline} offline
+              <span className="w-1.5 h-1.5 rounded-full bg-critical-600" />{counts.offline} offline
             </span>
           </div>
         </div>
 
-        {/* ── React Flow Canvas ── */}
+        {/* ── Canvas ── */}
         <div className="flex-1 relative">
           <ReactFlow
             nodes={visibleNodes}
@@ -389,34 +297,24 @@ const TopologyPage: React.FC = () => {
             maxZoom={2}
             proOptions={{ hideAttribution: true }}
           >
-            <Background
-              variant={BackgroundVariant.Dots}
-              gap={20}
-              size={1}
-              color="#e2e8f0"
-            />
+            <Background variant={BackgroundVariant.Dots} gap={20} size={1} color="#e2e8f0" />
             <Controls />
             <MiniMap
               nodeColor={(n: Node<TopologyNodeData>) => {
-                const s = n.data?.status;
-                if (s === 'online')  return '#16a34a';
-                if (s === 'warning') return '#f59e0b';
-                if (s === 'offline') return '#dc2626';
+                if (n.data?.status === 'online')  return '#16a34a';
+                if (n.data?.status === 'warning') return '#f59e0b';
+                if (n.data?.status === 'offline') return '#dc2626';
                 return '#94a3b8';
               }}
-              style={{
-                background: '#f8fafc',
-                border: '1px solid #e2e8f0',
-                borderRadius: '8px',
-              }}
+              style={{ background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: '8px' }}
               maskColor="rgba(241,245,249,0.6)"
             />
           </ReactFlow>
 
-          {/* Demo data banner */}
+          {/* Demo warning banner */}
           {!usingLive && !gns3Loading && (
-            <div className="absolute top-3 left-1/2 -translate-x-1/2 bg-warning-50 border border-warning-100 rounded-full px-4 py-1.5 text-[11px] text-warning-600 font-medium shadow-card animate-fade-in">
-              GNS3 not detected — showing demo topology data
+            <div className="absolute top-3 left-1/2 -translate-x-1/2 bg-warning-50 border border-warning-100 rounded-full px-4 py-1.5 text-[11px] text-warning-600 font-medium shadow-card">
+              GNS3 not connected — showing demo topology
             </div>
           )}
 
