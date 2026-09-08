@@ -16,10 +16,6 @@ app = FastAPI(title="AI-NOC Traffic Analyzer")
 # CORS CONFIGURATION
 # ==================================================
 
-# ==================================================
-# CORS CONFIGURATION
-# ==================================================
-
 app.add_middleware(
     CORSMiddleware,
     allow_origins=[
@@ -234,7 +230,8 @@ def detect_threats(result):
             "description": "Abnormally high ICMP traffic detected."
         })
 
-        risk_score += 40
+        # CHANGED FROM 40 TO 60
+        risk_score += 60
 
 
     elif icmp > 20:
