@@ -13,8 +13,9 @@ import axios, {
 // API BASE URL
 // --------------------------------------------------
 
+// Uses Vite dev proxy: /api → http://127.0.0.1:8000 (no CORS)
 const BASE_URL =
-  import.meta.env.VITE_API_BASE_URL || "http://127.0.0.1:8000";
+  import.meta.env.VITE_API_BASE_URL || '';
 
 // --------------------------------------------------
 // AXIOS CLIENT

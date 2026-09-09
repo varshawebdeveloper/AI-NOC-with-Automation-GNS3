@@ -6,7 +6,8 @@
 
 import type { DeviceStatus, DeviceType } from '../types';
 
-const GNS3_BASE = import.meta.env.VITE_GNS3_URL ?? 'http://localhost:3080/v2';
+// Uses Vite dev proxy: /gns3/... → localhost:3080/v2/... (no CORS)
+const GNS3_BASE = import.meta.env.VITE_GNS3_URL ?? '/gns3';
 
 // ─── GNS3 Raw Types ────────────────────────────────────────────────────────────
 
