@@ -25,7 +25,9 @@ export const DeviceInventoryPage: React.FC = () => {
 
   // Generate deterministic mock hardware data based on node ID
   const enrichNodeData = (node: any) => {
-    const hash = node.node_id.split('').reduce((acc: number, char: string) => acc + char.charCodeAt(0), 0);
+    // node is a MappedNode: { id, label, type, status, ipAddress, ... }
+    const nodeId = node.id || 'unknown';
+    const hash = nodeId.split('').reduce((acc: number, char: string) => acc + char.charCodeAt(0), 0);
     
     // Deterministic hardware properties
     const vendors = ['Cisco', 'Juniper', 'Arista', 'Palo Alto', 'Generic'];
@@ -34,14 +36,14 @@ export const DeviceInventoryPage: React.FC = () => {
     
     const index = hash % vendors.length;
     
-    // Derive node category from symbol or name
+    // Derive node category from type or label
     let category = 'Endpoint';
-    const nameLower = node.name.toLowerCase();
-    const symbolLower = (node.properties?.symbol || '').toLowerCase();
+    const labelLower = (node.label || '').toLowerCase();
+    const typeLower = (node.type || '').toLowerCase();
     
-    if (nameLower.includes('router') || symbolLower.includes('router')) category = 'Router';
-    else if (nameLower.includes('switch') || symbolLower.includes('switch')) category = 'Switch';
-    else if (nameLower.includes('fw') || nameLower.includes('firewall')) category = 'Firewall';
+    if (labelLower.includes('router') || typeLower.includes('router')) category = 'Router';
+    else if (labelLower.includes('switch') || typeLower.includes('switch')) category = 'Switch';
+    else if (labelLower.includes('fw') || labelLower.includes('firewall') || typeLower.includes('firewall')) category = 'Firewall';
 
     // Build deterministic MAC
     const hex = hash.toString(16).padStart(4, '0');
@@ -49,13 +51,15 @@ export const DeviceInventoryPage: React.FC = () => {
 
     return {
       ...node,
+      name: node.label,
+      node_id: nodeId,
       category,
       vendor: vendors[index],
       model: models[index],
       firmware: firmware[index],
-      serial: `SN-${hex.toUpperCase()}-${node.node_id.substring(0, 4).toUpperCase()}`,
-      mac: node.properties?.mac_address || mac,
-      ip: node.properties?.management_ip || `192.168.${(hash % 254) + 1}.${(hash % 254) + 1}`
+      serial: `SN-${hex.toUpperCase()}-${nodeId.substring(0, 4).toUpperCase()}`,
+      mac: mac,
+      ip: node.ipAddress || `192.168.${(hash % 254) + 1}.${(hash % 254) + 1}`
     };
   };
 
