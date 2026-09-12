@@ -68,7 +68,7 @@ export const AlertsPage: React.FC = () => {
   // --------------------------------------------------
 
   const activeAlerts = alerts.filter(
-    (alert) => alert.status === 'ACTIVE'
+    (alert) => alert.status === 'OPEN'
   );
 
   const highRiskAlerts = alerts.filter(
@@ -189,7 +189,7 @@ export const AlertsPage: React.FC = () => {
             
             <button
               onClick={handleClearAll}
-              disabled={loading || alerts.filter(a => a.status === 'ACTIVE').length === 0}
+              disabled={loading || alerts.filter(a => a.status === 'OPEN').length === 0}
               className="
                 flex items-center gap-2
                 px-4 py-2
