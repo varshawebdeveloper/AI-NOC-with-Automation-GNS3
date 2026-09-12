@@ -6,6 +6,7 @@ import { Breadcrumb } from '../common/Breadcrumb';
 import { Badge } from '../common/Badge';
 import { cn } from '../../utils';
 import { ROUTES } from '../../constants/theme';
+import { useGNS3 } from '../../context/GNS3Context';
 
 interface BreadcrumbItem {
   label: string;
@@ -19,6 +20,7 @@ interface TopNavProps {
 export const TopNav: React.FC<TopNavProps> = ({ breadcrumbs = [] }) => {
   const { user, logout } = useAuth();
   const navigate = useNavigate();
+  const { alerts } = useGNS3();
   const [showProfile, setShowProfile] = useState(false);
   const [showNotifs, setShowNotifs] = useState(false);
   const profileRef = useRef<HTMLDivElement>(null);
@@ -50,6 +52,9 @@ export const TopNav: React.FC<TopNavProps> = ({ breadcrumbs = [] }) => {
     .toUpperCase()
     .slice(0, 2) ?? 'AU';
 
+  const activeAlerts = alerts.filter(a => a.status === 'OPEN').sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
+  const activeCount = activeAlerts.length;
+
   return (
     <header className="h-16 bg-white border-b border-border flex items-center px-6 gap-4 flex-shrink-0 sticky top-0 z-20">
       {/* Breadcrumb */}
@@ -77,37 +82,46 @@ export const TopNav: React.FC<TopNavProps> = ({ breadcrumbs = [] }) => {
             className="relative p-2 rounded-lg text-text-secondary hover:text-text-primary hover:bg-surface-secondary transition-colors"
           >
             <Bell className="h-[18px] w-[18px]" />
-            <span className="absolute -top-0.5 -right-0.5 bg-critical-600 text-white text-[9px] font-bold w-4 h-4 flex items-center justify-center rounded-full">
-              3
-            </span>
+            {activeCount > 0 && (
+              <span className="absolute -top-0.5 -right-0.5 bg-critical-600 text-white text-[9px] font-bold w-4 h-4 flex items-center justify-center rounded-full">
+                {activeCount > 9 ? '9+' : activeCount}
+              </span>
+            )}
           </button>
 
           {showNotifs && (
             <div className="absolute right-0 top-full mt-1.5 w-72 bg-white border border-border rounded-card shadow-card-lg z-50 animate-fade-in overflow-hidden">
               <div className="px-4 py-3 border-b border-border flex items-center justify-between">
                 <span className="text-xs font-semibold text-text-primary">Notifications</span>
-                <Badge variant="severity" severity="critical" dot>3 new</Badge>
+                {activeCount > 0 && (
+                  <Badge variant="severity" severity="critical" dot>{activeCount} new</Badge>
+                )}
               </div>
-              <div className="divide-y divide-border">
-                {[
-                  { msg: 'Core-Router-01 CPU at 95%', time: '2m ago', type: 'critical' as const },
-                  { msg: 'FW-Primary traffic spike', time: '8m ago', type: 'warning' as const },
-                  { msg: 'Server-DB-02 disk at 90%', time: '15m ago', type: 'critical' as const },
-                ].map((n, i) => (
-                  <div key={i} className="px-4 py-3 hover:bg-surface-secondary cursor-pointer flex gap-3">
-                    <div className={cn(
-                      'w-1.5 h-1.5 rounded-full mt-1.5 flex-shrink-0',
-                      n.type === 'critical' ? 'bg-critical-600' : 'bg-warning-500'
-                    )} />
-                    <div>
-                      <p className="text-xs text-text-primary font-medium">{n.msg}</p>
-                      <p className="text-[10px] text-text-muted mt-0.5">{n.time}</p>
-                    </div>
-                  </div>
-                ))}
+              <div className="divide-y divide-border max-h-64 overflow-y-auto scrollbar-thin">
+                {activeCount === 0 ? (
+                  <div className="px-4 py-6 text-center text-xs text-text-muted">No active alerts.</div>
+                ) : (
+                  activeAlerts.slice(0, 10).map((n) => {
+                    const timeAgo = Math.floor((new Date().getTime() - new Date(n.created_at).getTime()) / 60000);
+                    const timeStr = timeAgo < 1 ? 'Just now' : timeAgo < 60 ? `${timeAgo}m ago` : `${Math.floor(timeAgo / 60)}h ago`;
+                    return (
+                      <div key={n.id} className="px-4 py-3 hover:bg-surface-secondary cursor-pointer flex gap-3">
+                        <div className={cn(
+                          'w-1.5 h-1.5 rounded-full mt-1.5 flex-shrink-0',
+                          n.severity === 'critical' ? 'bg-critical-600' : 
+                          n.severity === 'warning' ? 'bg-warning-500' : 'bg-success-500'
+                        )} />
+                        <div>
+                          <p className="text-xs text-text-primary font-medium">{n.message}</p>
+                          <p className="text-[10px] text-text-muted mt-0.5">{timeStr}</p>
+                        </div>
+                      </div>
+                    );
+                  })
+                )}
               </div>
-              <div className="px-4 py-2 border-t border-border">
-                <button className="text-xs text-primary-600 hover:underline font-medium">
+              <div className="px-4 py-2 border-t border-border text-center">
+                <button onClick={() => navigate(ROUTES.ALERTS)} className="text-xs text-primary-600 hover:underline font-medium">
                   View all alerts
                 </button>
               </div>

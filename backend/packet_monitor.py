@@ -1,8 +1,15 @@
-from fastapi import FastAPI
+import asyncio
+from fastapi import FastAPI, BackgroundTasks
 from fastapi.middleware.cors import CORSMiddleware
 from scapy.all import rdpcap, IP, ICMP, TCP, UDP
 from collections import Counter
 from pathlib import Path
+from backend.alert_engine import run_state_check
+import uuid
+from backend.database import (
+    get_open_alerts, get_recent_alerts, get_recent_activities, 
+    get_all_device_states, create_alert, log_activity
+)
 
 
 # ==================================================
@@ -63,6 +70,22 @@ def root():
     return {
         "message": "AI-NOC Traffic Analyzer API is running"
     }
+
+# ==================================================
+# BACKGROUND SCHEDULER
+# ==================================================
+
+@app.on_event("startup")
+async def startup_event():
+    async def poll_gns3_state():
+        while True:
+            try:
+                run_state_check()
+            except Exception as e:
+                print(f"[Alert Engine] Unhandled exception: {e}")
+            await asyncio.sleep(10)
+    
+    asyncio.create_task(poll_gns3_state())
 
 
 # ==================================================
@@ -229,6 +252,13 @@ def detect_threats(result):
             "severity": "HIGH",
             "description": "Abnormally high ICMP traffic detected."
         })
+
+        from backend.database import get_open_alert_for_device
+        existing_alert = get_open_alert_for_device("network_icmp_flood")
+        if not existing_alert:
+            _id = str(uuid.uuid4())
+            create_alert(_id, "network_icmp_flood", "Network", "critical", "CRITICAL — Abnormally high ICMP traffic detected (ICMP Flood)")
+            log_activity(_id, "Network", "critical", "ICMP Flood detected")
 
         # CHANGED FROM 40 TO 60
         risk_score += 60
@@ -522,8 +552,32 @@ def analyze_all_pcaps():
 
 @app.get("/api/traffic")
 def get_traffic():
-
     return analyze_all_pcaps()
+
+# ==================================================
+# ALERTS & STATE API
+# ==================================================
+
+@app.get("/api/alerts")
+def api_get_alerts(open_only: bool = False):
+    if open_only:
+        return get_open_alerts()
+    return get_recent_alerts(50)
+
+@app.post("/api/alerts/clear")
+def api_clear_alerts():
+    from backend.database import clear_all_alerts
+    clear_all_alerts()
+    return {"status": "success"}
+
+@app.get("/api/activity")
+def api_get_activity():
+    return get_recent_activities(30)
+
+@app.get("/api/nodes")
+def api_get_nodes():
+    states = get_all_device_states()
+    return list(states.values())
 
 
 # ==================================================

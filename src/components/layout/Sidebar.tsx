@@ -15,6 +15,7 @@ import {
 } from 'lucide-react';
 import { cn } from '../../utils';
 import { ROUTES } from '../../constants/theme';
+import { useGNS3 } from '../../context/GNS3Context';
 
 interface NavItem {
   label: string;
@@ -26,7 +27,7 @@ interface NavItem {
 const navItems: NavItem[] = [
   { label: 'Dashboard',         href: ROUTES.DASHBOARD, icon: <LayoutDashboard className="h-[18px] w-[18px]" /> },
   { label: 'Network Topology',  href: ROUTES.TOPOLOGY,  icon: <Network className="h-[18px] w-[18px]" /> },
-  { label: 'Alerts',            href: ROUTES.ALERTS,    icon: <Bell className="h-[18px] w-[18px]" />, badge: 12 },
+  { label: 'Alerts',            href: ROUTES.ALERTS,    icon: <Bell className="h-[18px] w-[18px]" />, badge: 0 }, // We will dynamically set this
   { label: 'Devices',           href: ROUTES.DEVICES,   icon: <Monitor className="h-[18px] w-[18px]" /> },
   { label: 'Analytics',         href: ROUTES.ANALYTICS, icon: <BarChart3 className="h-[18px] w-[18px]" /> },
   { label: 'Reports',           href: ROUTES.REPORTS,   icon: <FileText className="h-[18px] w-[18px]" /> },
@@ -40,6 +41,8 @@ interface SidebarProps {
 
 export const Sidebar: React.FC<SidebarProps> = ({ collapsed, onToggle }) => {
   const location = useLocation();
+  const { alerts } = useGNS3();
+  const activeAlertsCount = alerts.filter(a => a.status === 'OPEN').length;
 
   return (
     <aside
@@ -73,6 +76,9 @@ export const Sidebar: React.FC<SidebarProps> = ({ collapsed, onToggle }) => {
         {navItems.map((item) => {
           const isActive = location.pathname === item.href ||
             (item.href !== ROUTES.DASHBOARD && location.pathname.startsWith(item.href));
+          
+          const badgeCount = item.label === 'Alerts' ? activeAlertsCount : item.badge;
+
           return (
             <NavLink
               key={item.href}
@@ -90,16 +96,16 @@ export const Sidebar: React.FC<SidebarProps> = ({ collapsed, onToggle }) => {
             >
               <span className="flex-shrink-0">{item.icon}</span>
               {!collapsed && <span className="text-sm truncate">{item.label}</span>}
-              {!collapsed && item.badge && (
+              {!collapsed && badgeCount && badgeCount > 0 ? (
                 <span className="ml-auto bg-critical-600 text-white text-[10px] font-bold px-1.5 py-0.5 rounded-full leading-none">
-                  {item.badge}
+                  {badgeCount}
                 </span>
-              )}
-              {collapsed && item.badge && (
+              ) : null}
+              {collapsed && badgeCount && badgeCount > 0 ? (
                 <span className="absolute -top-1 -right-1 bg-critical-600 text-white text-[9px] font-bold w-4 h-4 flex items-center justify-center rounded-full">
-                  {item.badge}
+                  {badgeCount > 99 ? '99+' : badgeCount}
                 </span>
-              )}
+              ) : null}
               {/* Tooltip on collapsed */}
               {collapsed && (
                 <div className="absolute left-full ml-2 px-2 py-1 bg-text-primary text-white text-xs rounded-md whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-50">

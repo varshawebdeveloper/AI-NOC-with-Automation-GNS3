@@ -18,7 +18,7 @@ export const RecentAlerts: React.FC<RecentAlertsProps> = ({ alerts, maxRows = 6 
       <div className="px-5 pt-5 pb-0">
         <CardHeader
           title="Recent Alerts"
-          subtitle={`${alerts.filter((a) => !a.acknowledged).length} unacknowledged`}
+          subtitle={`${alerts.filter((a) => a.status === 'OPEN').length} active`}
           icon={
             <div className="p-2 bg-critical-50 rounded-lg">
               <Bell className="h-4 w-4 text-critical-600" />
@@ -47,20 +47,20 @@ export const RecentAlerts: React.FC<RecentAlertsProps> = ({ alerts, maxRows = 6 
               <tr
                 key={alert.id}
                 className={`hover:bg-surface-secondary transition-colors ${
-                  !alert.acknowledged ? 'bg-white' : 'bg-white opacity-70'
+                  alert.status === 'OPEN' ? 'bg-white' : 'bg-white opacity-70'
                 }`}
               >
                 <td className="px-5 py-3">
                   <SeverityBadge severity={alert.severity} />
                 </td>
                 <td className="px-3 py-3">
-                  <span className="font-medium text-text-primary">{alert.device}</span>
+                  <span className="font-medium text-text-primary">{alert.device_name}</span>
                 </td>
                 <td className="px-3 py-3 hidden sm:table-cell">
                   <span className="text-text-secondary">{alert.message}</span>
                 </td>
                 <td className="px-5 py-3 text-right text-text-muted whitespace-nowrap">
-                  {formatRelativeTime(alert.timestamp)}
+                  {formatRelativeTime(alert.created_at)}
                 </td>
               </tr>
             ))}

@@ -24,7 +24,7 @@ export const QuickActions: React.FC = () => {
         connected
           ? `Scan complete — ${nodes.length} devices found (${onlineCount} online)`
           : 'GNS3 offline — cannot scan',
-        connected ? 'success' : 'error',
+        connected ? 'success' : 'critical',
       );
     } finally {
       setScanning(false);
@@ -80,7 +80,7 @@ export const QuickActions: React.FC = () => {
 
       showToast('Report downloaded with live network data', 'success');
     } catch {
-      showToast('Could not generate report — check FastAPI server', 'error');
+      showToast('Could not generate report — check FastAPI server', 'critical');
     } finally {
       setReporting(false);
     }

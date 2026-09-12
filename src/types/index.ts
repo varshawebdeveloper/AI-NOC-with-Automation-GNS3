@@ -30,11 +30,14 @@ export interface LoginCredentials {
 // ---------- Alerts ----------
 export interface Alert {
   id: string;
+  device_id: string;
+  device_name: string;
   severity: AlertSeverity;
-  device: string;
   message: string;
-  timestamp: string;
-  acknowledged: boolean;
+  status: 'OPEN' | 'RESOLVED';
+  created_at: string;
+  resolved_at?: string;
+  is_gns3_conn: number;
 }
 
 // ---------- Devices ----------

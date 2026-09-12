@@ -1,4 +1,4 @@
-import React, { useState, useCallback, useMemo } from 'react';
+import React, { useState, useCallback, useMemo, useEffect } from 'react';
 import ReactFlow, {
   Background,
   Controls,
@@ -93,8 +93,18 @@ const TopologyPage: React.FC = () => {
   // ── React Flow state ──
   const rfNodes = useMemo(() => toRFNodes(activeNodes), [activeNodes]);
   const rfEdges = useMemo(() => toRFEdges(activeEdges), [activeEdges]);
-  const [, , onNodesChange] = useNodesState<TopologyNodeData>(rfNodes);
-  const [, , onEdgesChange] = useEdgesState(rfEdges);
+  
+  const [nodes, setNodes, onNodesChange] = useNodesState<TopologyNodeData>(rfNodes);
+  const [edges, setEdges, onEdgesChange] = useEdgesState(rfEdges);
+
+  // Sync ReactFlow state when live data updates
+  useEffect(() => {
+    setNodes(rfNodes);
+  }, [rfNodes, setNodes]);
+
+  useEffect(() => {
+    setEdges(rfEdges);
+  }, [rfEdges, setEdges]);
 
   // ── UI filter state ──
   const [selectedNode, setSelectedNode] = useState<TopologyNodeType | MappedNode | null>(null);
@@ -118,11 +128,11 @@ const TopologyPage: React.FC = () => {
   }, [activeNodes, search, typeFilter, statusFilter]);
 
   const visibleNodes = useMemo(
-    () => rfNodes.map((n) => ({
+    () => nodes.map((n) => ({
       ...n,
       style: filteredNodeIds.includes(n.id) ? {} : { opacity: 0.15 },
     })),
-    [rfNodes, filteredNodeIds],
+    [nodes, filteredNodeIds],
   );
 
   const onNodeClick = useCallback(
@@ -286,7 +296,7 @@ const TopologyPage: React.FC = () => {
         <div className="flex-1 relative">
           <ReactFlow
             nodes={visibleNodes}
-            edges={rfEdges}
+            edges={edges}
             onNodesChange={onNodesChange}
             onEdgesChange={onEdgesChange}
             onNodeClick={onNodeClick}

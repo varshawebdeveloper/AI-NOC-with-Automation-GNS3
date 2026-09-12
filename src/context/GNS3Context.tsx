@@ -24,7 +24,7 @@ import {
   type MappedNode,
   type MappedEdge,
 } from '../services/gns3Service';
-import type { Alert, ActivityItem, DeviceDistribution } from '../types';
+import type { Alert, ActivityItem, DeviceDistribution, DeviceType } from '../types';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -82,13 +82,9 @@ const DEVICE_COLORS: Record<string, string> = {
   pc:       '#94a3b8',
 };
 
+import { apiClient } from '../services/api';
+
 // ─── Helpers ──────────────────────────────────────────────────────────────────
-
-let _alertCounter = 0;
-const nextAlertId = () => `gns3-alrt-${Date.now()}-${++_alertCounter}`;
-
-let _actCounter = 0;
-const nextActId = () => `gns3-act-${Date.now()}-${++_actCounter}`;
 
 function buildDistribution(nodes: MappedNode[]): DeviceDistribution[] {
   const counts: Record<string, number> = {
@@ -99,47 +95,12 @@ function buildDistribution(nodes: MappedNode[]): DeviceDistribution[] {
     else counts.pc++;
   }
   return [
-    { type: 'router',   label: 'Routers',   count: counts.router,   color: DEVICE_COLORS.router },
-    { type: 'switch',   label: 'Switches',  count: counts.switch,   color: DEVICE_COLORS.switch },
-    { type: 'firewall', label: 'Firewalls', count: counts.firewall, color: DEVICE_COLORS.firewall },
-    { type: 'server',   label: 'Servers',   count: counts.server,   color: DEVICE_COLORS.server },
-    { type: 'pc',       label: 'PCs',       count: counts.pc,       color: DEVICE_COLORS.pc },
+    { type: 'router' as DeviceType,   label: 'Routers',   count: counts.router,   color: DEVICE_COLORS.router },
+    { type: 'switch' as DeviceType,   label: 'Switches',  count: counts.switch,   color: DEVICE_COLORS.switch },
+    { type: 'firewall' as DeviceType, label: 'Firewalls', count: counts.firewall, color: DEVICE_COLORS.firewall },
+    { type: 'server' as DeviceType,   label: 'Servers',   count: counts.server,   color: DEVICE_COLORS.server },
+    { type: 'pc' as DeviceType,       label: 'PCs',       count: counts.pc,       color: DEVICE_COLORS.pc },
   ].filter((d) => d.count > 0);
-}
-
-type NodeStatus = 'online' | 'offline' | 'warning' | 'unknown';
-
-function makeAlert(node: MappedNode, newStatus: NodeStatus): Alert {
-  const isOnline  = newStatus === 'online';
-  const isOffline = newStatus === 'offline';
-  return {
-    id:           nextAlertId(),
-    severity:     isOffline ? 'critical' : isOnline ? 'success' : 'warning',
-    device:       node.label,
-    message:      isOffline
-      ? `${node.label} went offline`
-      : isOnline
-        ? `${node.label} is back online`
-        : `${node.label} status changed to ${newStatus}`,
-    timestamp:    new Date().toISOString(),
-    acknowledged: false,
-  };
-}
-
-function makeActivity(node: MappedNode, newStatus: NodeStatus): ActivityItem {
-  const isOnline  = newStatus === 'online';
-  const isOffline = newStatus === 'offline';
-  return {
-    id:        nextActId(),
-    message:   isOffline
-      ? `${node.label} went offline`
-      : isOnline
-        ? `${node.label} is back online`
-        : `${node.label} status: ${newStatus}`,
-    timestamp: new Date().toISOString(),
-    type:      isOffline ? 'critical' : isOnline ? 'success' : 'warning',
-    device:    node.label,
-  };
 }
 
 // ─── Provider ─────────────────────────────────────────────────────────────────
@@ -156,8 +117,6 @@ export const GNS3Provider: React.FC<{ children: React.ReactNode }> = ({ children
   const [activityFeed, setActivity]       = useState<ActivityItem[]>([]);
   const [lastUpdated, setLastUpdated]     = useState<Date | null>(null);
 
-  // Track previous node statuses for change detection
-  const prevStatusRef = useRef<Map<string, NodeStatus>>(new Map());
   const pollRef       = useRef<ReturnType<typeof setInterval> | null>(null);
 
   // ── Fetch topology for current project ──────────────────────────────────────
@@ -171,31 +130,16 @@ export const GNS3Provider: React.FC<{ children: React.ReactNode }> = ({ children
       const mapped = gns3Service.mapNodes(rawNodes);
       const mappedEdges = gns3Service.mapLinks(rawLinks);
 
-      // Detect state changes — generate alerts + activity only on change
-      const newAlerts: Alert[]       = [];
-      const newActivity: ActivityItem[] = [];
-      const prevMap = prevStatusRef.current;
-
-      for (const node of mapped) {
-        const prev = prevMap.get(node.id);
-        const curr = node.status as NodeStatus;
-
-        if (prev !== undefined && prev !== curr) {
-          // State changed → generate alert + activity
-          newAlerts.push(makeAlert(node, curr));
-          newActivity.push(makeActivity(node, curr));
-        }
-
-        // Update tracked state
-        prevMap.set(node.id, curr);
-      }
-
-      // Prepend new events (newest first)
-      if (newAlerts.length > 0) {
-        setAlerts((prev) => [...newAlerts, ...prev].slice(0, MAX_ALERTS));
-      }
-      if (newActivity.length > 0) {
-        setActivity((prev) => [...newActivity, ...prev].slice(0, MAX_ACTIVITY));
+      // Fetch alerts and activity from backend
+      try {
+        const [alertsRes, activityRes] = await Promise.all([
+          apiClient.get<Alert[]>('/api/alerts'),
+          apiClient.get<ActivityItem[]>('/api/activity'),
+        ]);
+        setAlerts(alertsRes.data);
+        setActivity(activityRes.data);
+      } catch (e) {
+        console.error('[GNS3Context] Failed to fetch alerts from backend:', e);
       }
 
       setNodes(mapped);
@@ -241,7 +185,6 @@ export const GNS3Provider: React.FC<{ children: React.ReactNode }> = ({ children
   // ── Set project from UI ──────────────────────────────────────────────────────
   const setSelectedProject = useCallback((p: GNS3Project) => {
     _setProject(p);
-    prevStatusRef.current.clear(); // reset state tracking for new project
     fetchTopology(p);
   }, [fetchTopology]);
 
@@ -263,6 +206,43 @@ export const GNS3Provider: React.FC<{ children: React.ReactNode }> = ({ children
       if (pollRef.current) clearInterval(pollRef.current);
     };
   }, [connected, selectedProject, fetchTopology]);
+
+  // ── Sound Notification ───────────────────────────────────────────────────────
+  const prevAlertsRef = useRef<number>(0);
+  const isInitialLoadRef = useRef<boolean>(true);
+
+  useEffect(() => {
+    const activeAlerts = alerts.filter((a) => a.status === 'OPEN' || (a as any).status === 'ACTIVE');
+    const currentActiveCount = activeAlerts.length;
+
+    if (!isInitialLoadRef.current && currentActiveCount > prevAlertsRef.current) {
+      // Find the newest alert
+      const newest = activeAlerts.sort((a, b) => new Date(b.created_at || (b as any).timestamp).getTime() - new Date(a.created_at || (a as any).timestamp).getTime())[0];
+      
+      let audioSrc = 'https://actions.google.com/sounds/v1/alarms/beep_short.ogg'; // Default formal beep
+      
+      if (newest && newest.severity === 'critical') {
+        audioSrc = 'https://actions.google.com/sounds/v1/alarms/digital_watch_alarm_long.ogg'; // More urgent for critical
+      }
+
+      const audio = new Audio(audioSrc);
+      audio.loop = true;
+      audio.play().then(() => {
+        // Stop playing after 10 seconds
+        setTimeout(() => {
+          audio.pause();
+          audio.currentTime = 0;
+        }, 10000);
+      }).catch(err => console.log('Audio blocked by browser auto-play policy:', err));
+    }
+    
+    prevAlertsRef.current = currentActiveCount;
+    
+    // After the first render where alerts are set, it's no longer the initial load
+    if (alerts.length > 0 || !isInitialLoadRef.current) {
+      isInitialLoadRef.current = false;
+    }
+  }, [alerts]);
 
   // ── Derived values ───────────────────────────────────────────────────────────
   const onlineCount  = nodes.filter((n) => n.status === 'online').length;

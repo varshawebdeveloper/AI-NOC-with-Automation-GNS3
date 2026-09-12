@@ -6,6 +6,7 @@ import {
   Clock,
   RefreshCw,
   CheckCircle,
+  Trash2,
 } from 'lucide-react';
 
 import { AppLayout } from '../../layouts/AppLayout';
@@ -33,6 +34,17 @@ export const AlertsPage: React.FC = () => {
     } catch (error) {
       console.error('Failed to load alerts:', error);
     } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleClearAll = async () => {
+    try {
+      setLoading(true);
+      await alertService.clearAlerts();
+      await fetchAlerts();
+    } catch (err) {
+      console.error(err);
       setLoading(false);
     }
   };
@@ -150,30 +162,52 @@ export const AlertsPage: React.FC = () => {
             </p>
           </div>
 
-          <button
-            onClick={fetchAlerts}
-            disabled={loading}
-            className="
-              flex items-center gap-2
-              px-4 py-2
-              rounded-lg
-              bg-white
-              hover:bg-gray-50
-              border border-gray-200
-              text-gray-700
-              shadow-sm
-              transition
-            "
-          >
-            <RefreshCw
-              className={`w-4 h-4 ${
-                loading ? 'animate-spin' : ''
-              }`}
-            />
+          <div className="flex items-center gap-3">
+            <button
+              onClick={fetchAlerts}
+              disabled={loading}
+              className="
+                flex items-center gap-2
+                px-4 py-2
+                rounded-lg
+                bg-white
+                hover:bg-gray-50
+                border border-gray-200
+                text-gray-700
+                shadow-sm
+                transition
+              "
+            >
+              <RefreshCw
+                className={`w-4 h-4 ${
+                  loading ? 'animate-spin' : ''
+                }`}
+              />
 
-            Refresh
-          </button>
-
+              Refresh
+            </button>
+            
+            <button
+              onClick={handleClearAll}
+              disabled={loading || alerts.filter(a => a.status === 'ACTIVE').length === 0}
+              className="
+                flex items-center gap-2
+                px-4 py-2
+                rounded-lg
+                bg-red-50
+                hover:bg-red-100
+                border border-red-200
+                text-red-700
+                shadow-sm
+                transition
+                disabled:opacity-50
+                disabled:cursor-not-allowed
+              "
+            >
+              <Trash2 className="w-4 h-4" />
+              Clear All
+            </button>
+          </div>
         </div>
 
 
@@ -359,7 +393,7 @@ export const AlertsPage: React.FC = () => {
               NO THREATS
           ================================================== */}
 
-          {!loading && alerts.length === 0 && (
+          {!loading && activeAlerts.length === 0 && (
             <div className="
               p-10
               text-center
@@ -389,10 +423,10 @@ export const AlertsPage: React.FC = () => {
               THREATS
           ================================================== */}
 
-          {alerts.length > 0 && (
+          {activeAlerts.length > 0 && (
             <div className="divide-y divide-gray-200">
 
-              {alerts.map((alert) => (
+              {activeAlerts.map((alert) => (
 
                 <div
                   key={alert.id}

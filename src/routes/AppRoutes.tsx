@@ -15,6 +15,8 @@ const SessionReadyPage    = lazy(() => import('../pages/auth/SessionReadyPage'))
 const DashboardPage       = lazy(() => import('../pages/dashboard/DashboardPage'));
 const TopologyPage        = lazy(() => import('../pages/topology/TopologyPage'));
 const AlertsPage         = lazy(() => import('../pages/alerts/AlertsPage'));
+const DeviceInventoryPage = lazy(() => import('../pages/devices/DeviceInventoryPage'));
+const AnalyticsPage       = lazy(() => import('../pages/analytics/AnalyticsPage'));
 
 const PageFallback = () => (
   <div className="min-h-screen flex items-center justify-center bg-surface-secondary">
@@ -70,11 +72,7 @@ export const AppRoutes: React.FC = () => (
               path={ROUTES.DEVICES}
               element={
                 <ProtectedRoute>
-                  <PlaceholderPage
-                    title="Device Inventory"
-                    description="Complete device inventory with real-time stats, configuration, and management. Coming in Phase 2."
-                    breadcrumbs={[{ label: 'Devices' }]}
-                  />
+                  <DeviceInventoryPage />
                 </ProtectedRoute>
               }
             />
@@ -82,11 +80,7 @@ export const AppRoutes: React.FC = () => (
               path={ROUTES.ANALYTICS}
               element={
                 <ProtectedRoute>
-                  <PlaceholderPage
-                    title="Analytics"
-                    description="Advanced analytics with historical data, trends, and AI predictions. Coming in Phase 2."
-                    breadcrumbs={[{ label: 'Analytics' }]}
-                  />
+                  <AnalyticsPage />
                 </ProtectedRoute>
               }
             />

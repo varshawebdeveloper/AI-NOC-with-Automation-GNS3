@@ -20,51 +20,60 @@ export interface Alert {
 
 export const alertService = {
   /**
-   * Get live threat information from FastAPI.
+   * Get live alerts from FastAPI backend.
    *
    * Backend endpoint:
-   * GET /api/traffic
+   * GET /api/alerts
    */
   async getAlerts(): Promise<Alert[]> {
     try {
-      const response = await apiClient.get('/api/traffic');
-
+      const response = await apiClient.get('/api/alerts');
       const data = response.data;
 
-      const threats = Array.isArray(data.threats)
-        ? data.threats
-        : [];
+      const backendAlerts = Array.isArray(data) ? data : [];
 
-      return threats.map((item: any, index: number) => ({
-        id: `threat-${index}`,
+      return backendAlerts.map((item: any) => {
+        let severity: 'LOW' | 'MEDIUM' | 'HIGH' | 'CRITICAL' = 'LOW';
+        let risk_score = 10;
+        
+        if (item.severity === 'critical') {
+          severity = 'CRITICAL';
+          risk_score = 90;
+        } else if (item.severity === 'warning') {
+          severity = 'MEDIUM';
+          risk_score = 50;
+        }
 
-        threat:
-          item.type ||
-          'Unknown Threat',
+        let threat = item.device_name ? `${item.device_name} Alert` : 'System Alert';
+        // Extract the title if formatted like "CRITICAL — PC1 went offline"
+        if (item.message && item.message.includes('—')) {
+            threat = item.message.split('—')[1].trim();
+        }
 
-        severity:
-          item.severity ||
-          'LOW',
-
-        risk_score:
-          Number(data.risk ?? 0),
-
-        description:
-          item.description ||
-          'Suspicious network activity detected.',
-
-        timestamp:
-          new Date().toISOString(),
-
-        status: 'ACTIVE',
-      }));
+        return {
+          id: item.id,
+          threat,
+          severity,
+          risk_score,
+          description: item.message,
+          timestamp: item.created_at,
+          status: item.status === 'OPEN' ? 'ACTIVE' : 'RESOLVED',
+        };
+      });
     } catch (error) {
-      console.error(
-        'Failed to fetch threat alerts:',
-        error
-      );
-
+      console.error('Failed to fetch threat alerts:', error);
       return [];
+    }
+  },
+
+  /**
+   * Clear all active alerts.
+   */
+  async clearAlerts(): Promise<void> {
+    try {
+      await apiClient.post('/api/alerts/clear');
+    } catch (error) {
+      console.error('Failed to clear alerts:', error);
     }
   },
 
