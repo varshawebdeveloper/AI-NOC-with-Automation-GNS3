@@ -60,10 +60,10 @@ export const QuickActions: React.FC = () => {
         `OSPF          : ${data.ospf}`,
         ``,
         `=== AI THREAT DETECTION ===`,
-        `Risk Score    : ${data.risk}/100`,
-        `Threat Level  : ${data.threat}`,
-        ...(data.threats.length > 0
-          ? data.threats.map((t) => `  • [${t.severity}] ${t.type}: ${t.description}`)
+        `Risk Score    : ${data.threat_analysis?.risk_score ?? 0}/100`,
+        `Threat Level  : ${(data.threat_analysis?.severity ?? 'UNKNOWN').toUpperCase()}`,
+        ...(data.threat_analysis?.detected_threats && data.threat_analysis.detected_threats.length > 0
+          ? data.threat_analysis.detected_threats.map((t: string) => `  • ${t}`)
           : ['  • No threats detected']),
         ``,
         `=== DEVICE BREAKDOWN ===`,
