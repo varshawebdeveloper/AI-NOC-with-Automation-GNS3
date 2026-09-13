@@ -73,7 +73,7 @@ export const KpiCards: React.FC = () => {
       };
     }
 
-    const threat = trafficData?.threat_analysis?.severity?.toUpperCase();
+    const threat = trafficData?.threat?.toUpperCase();
 
     if (threat === 'LOW') {
       return {
@@ -160,33 +160,33 @@ export const KpiCards: React.FC = () => {
     {
       id: 'risk-score',
       label: 'Risk Score',
-      value: loading ? '...' : trafficData?.threat_analysis?.risk_score ?? 0,
+      value: loading ? '...' : trafficData?.risk ?? 0,
       subtitle: error
         ? 'Unable to calculate risk'
-        : trafficData?.threat_analysis?.risk_score === 0
+        : trafficData?.risk === 0
           ? 'Network risk is low'
-          : (trafficData?.threat_analysis?.risk_score ?? 0) < 40
+          : (trafficData?.risk ?? 0) < 40
             ? 'Low network risk'
-            : (trafficData?.threat_analysis?.risk_score ?? 0) < 70
+            : (trafficData?.risk ?? 0) < 70
               ? 'Medium network risk'
               : 'High network risk',
       icon: <ShieldAlert className="h-5 w-5" />,
       iconBg:
-        trafficData?.threat_analysis?.risk_score !== undefined && trafficData.threat_analysis.risk_score >= 70
+        trafficData?.risk !== undefined && trafficData.risk >= 70
           ? 'bg-critical-100'
-          : trafficData?.threat_analysis?.risk_score !== undefined && trafficData.threat_analysis.risk_score >= 40
+          : trafficData?.risk !== undefined && trafficData.risk >= 40
             ? 'bg-warning-100'
             : 'bg-success-100',
       iconColor:
-        trafficData?.threat_analysis?.risk_score !== undefined && trafficData.threat_analysis.risk_score >= 70
+        trafficData?.risk !== undefined && trafficData.risk >= 70
           ? 'text-critical-600'
-          : trafficData?.threat_analysis?.risk_score !== undefined && trafficData.threat_analysis.risk_score >= 40
+          : trafficData?.risk !== undefined && trafficData.risk >= 40
             ? 'text-warning-600'
             : 'text-success-600',
       valueColor:
-        trafficData?.threat_analysis?.risk_score !== undefined && trafficData.threat_analysis.risk_score >= 70
+        trafficData?.risk !== undefined && trafficData.risk >= 70
           ? 'text-critical-600'
-          : trafficData?.threat_analysis?.risk_score !== undefined && trafficData.threat_analysis.risk_score >= 40
+          : trafficData?.risk !== undefined && trafficData.risk >= 40
             ? 'text-warning-600'
             : 'text-success-600',
     },
@@ -194,7 +194,7 @@ export const KpiCards: React.FC = () => {
     {
       id: 'threat',
       label: 'Threat Level',
-      value: loading ? '...' : (trafficData?.threat_analysis?.severity?.toUpperCase() ?? 'UNKNOWN'),
+      value: loading ? '...' : trafficData?.threat ?? 'UNKNOWN',
       subtitle: error
         ? 'Unable to fetch traffic data'
         : 'Current network threat status',

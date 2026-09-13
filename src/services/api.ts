@@ -88,11 +88,10 @@ export interface TrafficData {
   udp: number;
   other: number;
 
-  threat_analysis?: {
-    risk_score: number;
-    severity: string;
-    detected_threats: string[];
-  };
+  risk: number;
+  threat: string;
+
+  threats: TrafficThreat[];
 
   top_source_ips: Record<string, number>;
   top_destination_ips: Record<string, number>;

@@ -29,7 +29,7 @@ export const AIHealthScore: React.FC = () => {
   // --------------------------------------------------
 
   const score = trafficData
-    ? Math.max(0, Math.min(100, 100 - (trafficData.threat_analysis?.risk_score || 0)))
+    ? Math.max(0, Math.min(100, 100 - trafficData.risk))
     : 0;
 
   // --------------------------------------------------
@@ -76,17 +76,17 @@ export const AIHealthScore: React.FC = () => {
       : 0;
 
   const security = trafficData
-    ? Math.max(0, 100 - (trafficData.threat_analysis?.risk_score || 0))
+    ? Math.max(0, 100 - trafficData.risk)
     : 0;
 
   const trafficStability =
-    trafficData?.threat_analysis?.severity === 'low'
+    trafficData?.threat === 'LOW'
       ? 100
-      : trafficData?.threat_analysis?.severity === 'medium'
+      : trafficData?.threat === 'MEDIUM'
         ? 70
-        : trafficData?.threat_analysis?.severity === 'high'
+        : trafficData?.threat === 'HIGH'
           ? 40
-          : trafficData?.threat_analysis?.severity === 'critical'
+          : trafficData?.threat === 'CRITICAL'
             ? 20
             : 0;
 
@@ -232,16 +232,16 @@ export const AIHealthScore: React.FC = () => {
             <div
               className={cn(
                 'text-lg font-bold mt-1',
-                trafficData.threat_analysis?.severity === 'low'
+                trafficData.threat === 'LOW'
                   ? 'text-teal-600'
-                  : trafficData.threat_analysis?.severity === 'medium'
+                  : trafficData.threat === 'MEDIUM'
                     ? 'text-warning-600'
-                    : trafficData.threat_analysis?.severity === 'high'
+                    : trafficData.threat === 'HIGH'
                       ? 'text-orange-600'
                       : 'text-critical-600'
               )}
             >
-              {(trafficData.threat_analysis?.severity || 'LOW').toUpperCase()}
+              {trafficData.threat}
             </div>
 
           </div>
@@ -251,8 +251,8 @@ export const AIHealthScore: React.FC = () => {
             AI THREAT DETECTION
         ========================================== */}
 
-        {trafficData?.threat_analysis?.detected_threats &&
-          trafficData.threat_analysis.detected_threats.length > 0 && (
+        {trafficData?.threats &&
+          trafficData.threats.length > 0 && (
 
             <div className="w-full mt-4 p-3 rounded-lg bg-red-50 border border-red-200">
 
@@ -263,17 +263,17 @@ export const AIHealthScore: React.FC = () => {
                 </span>
 
                 <span className="text-xs font-bold text-red-600">
-                  {trafficData.threat_analysis.severity.toUpperCase()}
+                  {trafficData.threats[0].severity}
                 </span>
 
               </div>
 
               <p className="text-sm font-bold text-text-primary mt-1">
-                {trafficData.threat_analysis.detected_threats[0]}
+                {trafficData.threats[0].type}
               </p>
 
               <p className="text-xs text-text-muted mt-1">
-                Anomaly pattern isolated by AI mitigation engine.
+                {trafficData.threats[0].description}
               </p>
 
             </div>
@@ -284,8 +284,8 @@ export const AIHealthScore: React.FC = () => {
         ========================================== */}
 
         {trafficData &&
-          (!trafficData.threat_analysis?.detected_threats ||
-            trafficData.threat_analysis.detected_threats.length === 0) && (
+          trafficData.threats &&
+          trafficData.threats.length === 0 && (
 
             <div className="w-full mt-4 p-3 rounded-lg bg-teal-50 border border-teal-200">
 

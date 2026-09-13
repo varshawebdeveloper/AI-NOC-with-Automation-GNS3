@@ -60,12 +60,10 @@ export const AnalyticsPage: React.FC = () => {
         const data = await res.json();
         
         // Generate live metrics based on backend real-time pcap stats
-        const liveInbound = Math.max(10, Math.floor((data.total_bytes || 0) / 1024));
+        const liveInbound = Math.max(10, Math.floor(data.summary.total_bytes / 1024));
         const liveOutbound = Math.floor(liveInbound * 0.6);
-        const liveLatency = Math.min(200, Math.max(5, (data.total_packets || 0) / 100));
-        
-        const risk = data.threat_analysis?.risk_score || 0;
-        const liveRisk = risk;
+        const liveLatency = Math.min(200, Math.max(5, data.summary.total_packets / 100));
+        const liveRisk = data.ai_analysis.risk_score || 0;
         const livePacketLoss = liveRisk > 50 ? 5.5 : 0; // Spike packet loss if risk is high
 
         setChartData(prev => {
