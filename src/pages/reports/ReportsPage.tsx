@@ -1,10 +1,26 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { FileText, Download, Printer, Filter, Calendar, Activity, ShieldAlert, Cpu } from 'lucide-react';
 import { AppLayout } from '../../layouts/AppLayout';
-import { Card, CardHeader } from '../../components/common/Card';
+import { alertService, Alert } from '../../services/alertService';
 
 export const ReportsPage: React.FC = () => {
   const [generating, setGenerating] = useState(false);
+  const [alerts, setAlerts] = useState<Alert[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const fetchAlerts = async () => {
+      try {
+        const data = await alertService.getAlerts();
+        setAlerts(data);
+      } catch (err) {
+        console.error('Failed to load alerts for report', err);
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchAlerts();
+  }, []);
 
   const handlePrint = () => {
     window.print();
@@ -13,16 +29,34 @@ export const ReportsPage: React.FC = () => {
   const handleExportCSV = () => {
     setGenerating(true);
     setTimeout(() => {
-      const csv = "Date,Event,Severity,Device\n2026-09-12,ICMP Flood,CRITICAL,Network\n2026-09-12,GNS3 Disconnect,CRITICAL,System\n";
+      let csv = "Date,Event,Severity,Device,Status\n";
+      alerts.forEach(a => {
+        const date = new Date(a.timestamp).toISOString();
+        csv += `${date},${a.threat},${a.severity},${a.id},${a.status}\n`; // device_name isn't in alertService type directly, but threat contains it
+      });
       const blob = new Blob([csv], { type: 'text/csv' });
       const url = window.URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = url;
-      a.download = 'NOC_Report_Sept_2026.csv';
+      a.download = 'NOC_Report_Live.csv';
       a.click();
       setGenerating(false);
-    }, 1000);
+    }, 500);
   };
+
+  // Dynamic calculations
+  const totalAlerts = alerts.length;
+  const criticalAlerts = alerts.filter(a => a.severity === 'CRITICAL').length;
+  
+  // Group by threat (which contains device name)
+  const alertCounts: Record<string, number> = {};
+  alerts.forEach(a => {
+    alertCounts[a.threat] = (alertCounts[a.threat] || 0) + 1;
+  });
+  
+  const topGenerators = Object.entries(alertCounts)
+    .sort((a, b) => b[1] - a[1])
+    .slice(0, 5);
 
   return (
     <AppLayout breadcrumbs={[{ label: 'Reports' }]}>
@@ -84,10 +118,10 @@ export const ReportsPage: React.FC = () => {
             <div className="bg-red-50/50 border border-red-100 rounded-xl p-5">
               <div className="flex items-center gap-3 mb-2">
                 <ShieldAlert className="w-5 h-5 text-red-600" />
-                <h3 className="font-semibold text-gray-900">Threats Prevented</h3>
+                <h3 className="font-semibold text-gray-900">Total Alerts Tracked</h3>
               </div>
-              <p className="text-3xl font-black text-red-600">142</p>
-              <p className="text-sm text-gray-500 mt-1">12 isolated automatically</p>
+              <p className="text-3xl font-black text-red-600">{totalAlerts}</p>
+              <p className="text-sm text-gray-500 mt-1">{criticalAlerts} critical severity</p>
             </div>
 
             <div className="bg-indigo-50/50 border border-indigo-100 rounded-xl p-5">
@@ -121,24 +155,19 @@ export const ReportsPage: React.FC = () => {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-100">
-                  <tr>
-                    <td className="px-4 py-3 font-medium text-gray-900">R6 Router</td>
-                    <td className="px-4 py-3 text-gray-600">Core Router</td>
-                    <td className="px-4 py-3 font-bold text-red-600">42</td>
-                    <td className="px-4 py-3 text-green-600 font-medium">All Resolved</td>
-                  </tr>
-                  <tr className="bg-gray-50/50">
-                    <td className="px-4 py-3 font-medium text-gray-900">PC-1 (VPC)</td>
-                    <td className="px-4 py-3 text-gray-600">Endpoint</td>
-                    <td className="px-4 py-3 font-bold text-orange-500">18</td>
-                    <td className="px-4 py-3 text-orange-600 font-medium">Requires Inspection</td>
-                  </tr>
-                  <tr>
-                    <td className="px-4 py-3 font-medium text-gray-900">Core Switch A</td>
-                    <td className="px-4 py-3 text-gray-600">Distribution Switch</td>
-                    <td className="px-4 py-3 font-bold text-gray-700">7</td>
-                    <td className="px-4 py-3 text-green-600 font-medium">All Resolved</td>
-                  </tr>
+                  {topGenerators.map(([name, count], idx) => (
+                    <tr key={name} className={idx % 2 === 1 ? "bg-gray-50/50" : ""}>
+                      <td className="px-4 py-3 font-medium text-gray-900">{name}</td>
+                      <td className="px-4 py-3 text-gray-600">Monitored Device</td>
+                      <td className="px-4 py-3 font-bold text-red-600">{count}</td>
+                      <td className="px-4 py-3 text-green-600 font-medium">Auto-Tracked</td>
+                    </tr>
+                  ))}
+                  {topGenerators.length === 0 && (
+                    <tr>
+                      <td colSpan={4} className="px-4 py-8 text-center text-gray-500">No alerts generated in this period.</td>
+                    </tr>
+                  )}
                 </tbody>
               </table>
             </div>

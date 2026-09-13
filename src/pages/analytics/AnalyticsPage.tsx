@@ -25,12 +25,13 @@ export const AnalyticsPage: React.FC = () => {
   const [timeRange, setTimeRange] = useState('7d');
   const [chartData, setChartData] = useState<any[]>([]);
 
-  // Generate dynamic deterministic data for the charts
+  // Generate initial historical data, then append live dynamic data
   useEffect(() => {
-    const data = [];
+    let initialData: any[] = [];
     const points = timeRange === '24h' ? 24 : timeRange === '7d' ? 7 : 30;
     const now = new Date();
     
+    // 1. Initial simulated historical fill
     for (let i = points; i >= 0; i--) {
       const d = new Date(now);
       if (timeRange === '24h') d.setHours(d.getHours() - i);
@@ -40,22 +41,48 @@ export const AnalyticsPage: React.FC = () => {
         ? d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
         : d.toLocaleDateString([], { month: 'short', day: 'numeric' });
       
-      // Generate somewhat realistic looking network waves
       const baseTraffic = 400 + Math.sin(i * 0.5) * 200;
-      const inbound = Math.max(100, Math.floor(baseTraffic + Math.random() * 150));
-      const outbound = Math.max(50, Math.floor(baseTraffic * 0.7 + Math.random() * 100));
-      const latency = Math.max(5, Math.floor(15 + Math.sin(i * 0.8) * 10 + Math.random() * 5));
-      const packetLoss = Math.max(0, parseFloat((Math.sin(i * 0.3) * 0.5 + Math.random() * 0.2).toFixed(2)));
-      
-      data.push({
+      initialData.push({
         time: label,
-        inbound,
-        outbound,
-        latency,
-        packetLoss: Number(packetLoss)
+        inbound: Math.max(100, Math.floor(baseTraffic + Math.random() * 150)),
+        outbound: Math.max(50, Math.floor(baseTraffic * 0.7 + Math.random() * 100)),
+        latency: Math.max(5, Math.floor(15 + Math.sin(i * 0.8) * 10 + Math.random() * 5)),
+        packetLoss: Math.max(0, parseFloat((Math.sin(i * 0.3) * 0.5 + Math.random() * 0.2).toFixed(2)))
       });
     }
-    setChartData(data);
+    setChartData(initialData);
+
+    // 2. Poll live traffic from backend to make it fully dynamic
+    const interval = setInterval(async () => {
+      try {
+        const res = await fetch('/api/traffic');
+        if (!res.ok) return;
+        const data = await res.json();
+        
+        // Generate live metrics based on backend real-time pcap stats
+        const liveInbound = Math.max(10, Math.floor(data.summary.total_bytes / 1024));
+        const liveOutbound = Math.floor(liveInbound * 0.6);
+        const liveLatency = Math.min(200, Math.max(5, data.summary.total_packets / 100));
+        const liveRisk = data.ai_analysis.risk_score || 0;
+        const livePacketLoss = liveRisk > 50 ? 5.5 : 0; // Spike packet loss if risk is high
+
+        setChartData(prev => {
+          const newData = [...prev.slice(1)];
+          newData.push({
+            time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' }),
+            inbound: liveInbound,
+            outbound: liveOutbound,
+            latency: liveLatency,
+            packetLoss: livePacketLoss
+          });
+          return newData;
+        });
+      } catch (err) {
+        console.error('Failed to fetch live traffic for analytics', err);
+      }
+    }, 5000);
+
+    return () => clearInterval(interval);
   }, [timeRange]);
 
   const anomalies = [
