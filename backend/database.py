@@ -69,6 +69,14 @@ def init_db():
         )
     ''')
     
+    c.execute('''
+        CREATE TABLE IF NOT EXISTS settings (
+            key TEXT PRIMARY KEY,
+            value TEXT
+        )
+    ''')
+    c.execute("INSERT OR IGNORE INTO settings (key, value) VALUES ('auto_mitigation', 'false')")
+
     conn.commit()
 
 # ==================================================
@@ -195,6 +203,17 @@ def get_recent_activities(limit=30):
     c = get_db().cursor()
     c.execute("SELECT * FROM activity_feed ORDER BY timestamp DESC LIMIT ?", (limit,))
     return [dict(r) for r in c.fetchall()]
+
+def get_setting(key: str, default_val: str = "") -> str:
+    c = get_db().cursor()
+    c.execute("SELECT value FROM settings WHERE key = ?", (key,))
+    row = c.fetchone()
+    return row["value"] if row else default_val
+
+def set_setting(key: str, value: str):
+    c = get_db().cursor()
+    c.execute("INSERT OR REPLACE INTO settings (key, value) VALUES (?, ?)", (key, value))
+    get_db().commit()
 
 # Initialize on import
 init_db()

@@ -15,7 +15,7 @@ export interface Alert {
   destination_ip?: string;
   protocol?: string;
   timestamp: string;
-  status: 'ACTIVE' | 'RESOLVED';
+  status: 'OPEN' | 'RESOLVED';
 }
 
 export const alertService = {
@@ -57,7 +57,7 @@ export const alertService = {
           risk_score,
           description: item.message,
           timestamp: item.created_at,
-          status: item.status === 'OPEN' ? 'ACTIVE' : 'RESOLVED',
+          status: item.status === 'OPEN' ? 'OPEN' : 'RESOLVED',
         };
       });
     } catch (error) {

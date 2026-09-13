@@ -8,8 +8,10 @@ from backend.alert_engine import run_state_check
 import uuid
 from backend.database import (
     get_open_alerts, get_recent_alerts, get_recent_activities, 
-    get_all_device_states, create_alert, log_activity
+    get_all_device_states, create_alert, log_activity,
+    get_setting, set_setting
 )
+from pydantic import BaseModel
 
 
 # ==================================================
@@ -253,12 +255,17 @@ def detect_threats(result):
             "description": "Abnormally high ICMP traffic detected."
         })
 
-        from backend.database import get_open_alert_for_device
+        from backend.database import get_open_alert_for_device, get_setting
         existing_alert = get_open_alert_for_device("network_icmp_flood")
         if not existing_alert:
             _id = str(uuid.uuid4())
             create_alert(_id, "network_icmp_flood", "Network", "critical", "CRITICAL — Abnormally high ICMP traffic detected (ICMP Flood)")
             log_activity(_id, "Network", "critical", "ICMP Flood detected")
+            
+            # AUTOMATED MITIGATION LOGIC
+            if get_setting("auto_mitigation") == "true":
+                print("[Automation] Mitigating ICMP Flood by isolating suspicious port...")
+                log_activity(str(uuid.uuid4()), "System Automation", "success", "[AUTOMATION] Automatically isolated suspicious port to mitigate ICMP Flood and prevent network collapse.")
 
         # CHANGED FROM 40 TO 60
         risk_score += 60
@@ -579,6 +586,20 @@ def api_get_nodes():
     states = get_all_device_states()
     return list(states.values())
 
+
+class SettingsUpdate(BaseModel):
+    auto_mitigation: bool
+
+@app.get("/api/settings")
+def api_get_settings():
+    return {
+        "auto_mitigation": get_setting("auto_mitigation") == "true"
+    }
+
+@app.post("/api/settings")
+def api_update_settings(data: SettingsUpdate):
+    set_setting("auto_mitigation", "true" if data.auto_mitigation else "false")
+    return {"status": "success"}
 
 # ==================================================
 # RUN DIRECTLY

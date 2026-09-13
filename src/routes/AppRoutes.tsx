@@ -17,6 +17,8 @@ const TopologyPage        = lazy(() => import('../pages/topology/TopologyPage'))
 const AlertsPage         = lazy(() => import('../pages/alerts/AlertsPage'));
 const DeviceInventoryPage = lazy(() => import('../pages/devices/DeviceInventoryPage'));
 const AnalyticsPage       = lazy(() => import('../pages/analytics/AnalyticsPage'));
+const SettingsPage        = lazy(() => import('../pages/settings/SettingsPage'));
+const ReportsPage         = lazy(() => import('../pages/reports/ReportsPage'));
 
 const PageFallback = () => (
   <div className="min-h-screen flex items-center justify-center bg-surface-secondary">
@@ -88,11 +90,7 @@ export const AppRoutes: React.FC = () => (
               path={ROUTES.REPORTS}
               element={
                 <ProtectedRoute>
-                  <PlaceholderPage
-                    title="Reports"
-                    description="Automated report generation and scheduling. Coming in Phase 2."
-                    breadcrumbs={[{ label: 'Reports' }]}
-                  />
+                  <ReportsPage />
                 </ProtectedRoute>
               }
             />
@@ -100,11 +98,7 @@ export const AppRoutes: React.FC = () => (
               path={ROUTES.SETTINGS}
               element={
                 <ProtectedRoute>
-                  <PlaceholderPage
-                    title="Settings"
-                    description="User preferences, notification settings, and integrations. Coming in Phase 2."
-                    breadcrumbs={[{ label: 'Settings' }]}
-                  />
+                  <SettingsPage />
                 </ProtectedRoute>
               }
             />
