@@ -255,7 +255,7 @@ def detect_threats(result):
             "description": "Abnormally high ICMP traffic detected."
         })
 
-        from backend.database import get_open_alert_for_device, get_setting
+        from backend.database import get_open_alert_for_device, get_setting, resolve_alert
         existing_alert = get_open_alert_for_device("network_icmp_flood")
         if not existing_alert:
             _id = str(uuid.uuid4())
@@ -270,8 +270,15 @@ def detect_threats(result):
         # CHANGED FROM 40 TO 60
         risk_score += 60
 
+    else:
+        from backend.database import get_open_alert_for_device, resolve_alert
+        existing_alert = get_open_alert_for_device("network_icmp_flood")
+        if existing_alert:
+            resolve_alert(existing_alert["id"], "RESOLVED — ICMP traffic returned to normal levels.")
+            log_activity(str(uuid.uuid4()), "Network", "success", "ICMP Flood resolved (traffic normal).")
 
-    elif icmp > 20:
+
+    if icmp > 20 and icmp <= 50:
 
         threats.append({
             "type": "Suspicious ICMP Traffic",
@@ -294,10 +301,23 @@ def detect_threats(result):
             "description": "Very high TCP traffic detected."
         })
 
+        from backend.database import get_open_alert_for_device, resolve_alert
+        existing_tcp = get_open_alert_for_device("network_tcp_flood")
+        if not existing_tcp:
+            _id = str(uuid.uuid4())
+            create_alert(_id, "network_tcp_flood", "Network", "warning", "WARNING — Very high TCP traffic detected (Possible TCP Flood)")
+            log_activity(_id, "Network", "warning", "Possible TCP Flood detected")
+
         risk_score += 30
 
+    else:
+        from backend.database import get_open_alert_for_device, resolve_alert
+        existing_tcp = get_open_alert_for_device("network_tcp_flood")
+        if existing_tcp:
+            resolve_alert(existing_tcp["id"], "RESOLVED — TCP traffic returned to normal levels.")
+            log_activity(str(uuid.uuid4()), "Network", "success", "TCP Flood resolved (traffic normal).")
 
-    elif tcp > 50:
+    if tcp > 50 and tcp <= 100:
 
         threats.append({
             "type": "High TCP Traffic",
@@ -320,10 +340,23 @@ def detect_threats(result):
             "description": "Very high UDP traffic detected."
         })
 
+        from backend.database import get_open_alert_for_device, resolve_alert
+        existing_udp = get_open_alert_for_device("network_udp_flood")
+        if not existing_udp:
+            _id = str(uuid.uuid4())
+            create_alert(_id, "network_udp_flood", "Network", "warning", "WARNING — Very high UDP traffic detected (Possible UDP Flood)")
+            log_activity(_id, "Network", "warning", "Possible UDP Flood detected")
+
         risk_score += 30
 
+    else:
+        from backend.database import get_open_alert_for_device, resolve_alert
+        existing_udp = get_open_alert_for_device("network_udp_flood")
+        if existing_udp:
+            resolve_alert(existing_udp["id"], "RESOLVED — UDP traffic returned to normal levels.")
+            log_activity(str(uuid.uuid4()), "Network", "success", "UDP Flood resolved (traffic normal).")
 
-    elif udp > 50:
+    if udp > 50 and udp <= 100:
 
         threats.append({
             "type": "High UDP Traffic",
