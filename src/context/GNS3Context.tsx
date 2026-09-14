@@ -82,7 +82,7 @@ const DEVICE_COLORS: Record<string, string> = {
   pc:       '#94a3b8',
 };
 
-import { apiClient } from '../services/api';
+import { apiClient, getTrafficData } from '../services/api';
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -216,24 +216,70 @@ export const GNS3Provider: React.FC<{ children: React.ReactNode }> = ({ children
     const currentActiveCount = activeAlerts.length;
 
     if (!isInitialLoadRef.current && currentActiveCount > prevAlertsRef.current) {
-      // Find the newest alert
-      const newest = activeAlerts.sort((a, b) => new Date(b.created_at || (b as any).timestamp).getTime() - new Date(a.created_at || (a as any).timestamp).getTime())[0];
-      
-      let audioSrc = 'https://actions.google.com/sounds/v1/alarms/beep_short.ogg'; // Default formal beep
-      
-      if (newest && newest.severity === 'critical') {
-        audioSrc = 'https://actions.google.com/sounds/v1/alarms/digital_watch_alarm_long.ogg'; // More urgent for critical
-      }
+      // Create an async context to fetch risk score
+      const playAlarm = async () => {
+        let riskScore = 0;
+        try {
+          const traffic = await getTrafficData();
+          riskScore = traffic.risk || 0;
+        } catch (err) {
+          console.error('Failed to fetch traffic data for alarm', err);
+        }
 
-      const audio = new Audio(audioSrc);
-      audio.loop = true;
-      audio.play().then(() => {
-        // Stop playing after 10 seconds
-        setTimeout(() => {
-          audio.pause();
-          audio.currentTime = 0;
-        }, 10000);
-      }).catch(err => console.log('Audio blocked by browser auto-play policy:', err));
+        // ─── LOUD SYNTHESIZED BEEP FOR LAB ENVIRONMENT ───
+        const playLoudBeep = (risk: number) => {
+          try {
+            const AudioContextClass = window.AudioContext || (window as any).webkitAudioContext;
+            if (!AudioContextClass) return;
+            
+            const ctx = new AudioContextClass();
+            const osc = ctx.createOscillator();
+            const gain = ctx.createGain();
+
+            let beepSpeedMs = 1000;
+
+            if (risk >= 70) {
+              osc.type = 'square'; // Very harsh and loud
+              osc.frequency.value = 1200; // High pitch, piercing
+              beepSpeedMs = 200; // Fast beep
+            } else if (risk >= 40) {
+              osc.type = 'sawtooth'; // Slightly less harsh
+              osc.frequency.value = 800; // Medium pitch
+              beepSpeedMs = 500; // Medium beep
+            } else {
+              osc.type = 'sine'; // Soft tone
+              osc.frequency.value = 600; // Normal pitch
+              beepSpeedMs = 1000; // Slow beep
+            }
+
+            osc.connect(gain);
+            gain.connect(ctx.destination);
+            
+            // Start silent
+            gain.gain.setValueAtTime(0, ctx.currentTime);
+            osc.start();
+
+            let isLoud = false;
+            const interval = setInterval(() => {
+              isLoud = !isLoud;
+              gain.gain.setValueAtTime(isLoud ? 1.0 : 0, ctx.currentTime);
+            }, beepSpeedMs);
+
+            // Stop after exactly 10 seconds
+            setTimeout(() => {
+              clearInterval(interval);
+              osc.stop();
+              ctx.close().catch(() => {});
+            }, 10000);
+          } catch (err) {
+            console.log('Web Audio API blocked or failed:', err);
+          }
+        };
+
+        playLoudBeep(riskScore);
+      };
+      
+      playAlarm();
     }
     
     prevAlertsRef.current = currentActiveCount;
