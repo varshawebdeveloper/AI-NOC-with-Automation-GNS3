@@ -240,19 +240,32 @@ export const GNS3Provider: React.FC<{ children: React.ReactNode }> = ({ children
   }, [connected, selectedProject, fetchTopology]);
 
   // ── Sound Notification ───────────────────────────────────────────────────────
-  const prevNewestTimeRef = useRef<number>(0);
-  const isInitialLoadRef = useRef<boolean>(true);
+  const seenAlertIdsRef = useRef<Set<string>>(new Set());
+  const initialFetchDoneRef = useRef<boolean>(false);
 
   useEffect(() => {
+    if (loading) return; // Wait until initial data is fully loaded
+
     const activeAlerts = alerts.filter((a) => a.status === 'OPEN' || (a as any).status === 'ACTIVE');
     
-    let newestTime = 0;
-    if (activeAlerts.length > 0) {
-      const newest = activeAlerts.sort((a, b) => new Date(b.created_at || (b as any).timestamp).getTime() - new Date(a.created_at || (a as any).timestamp).getTime())[0];
-      newestTime = new Date(newest.created_at || (newest as any).timestamp).getTime();
+    if (!initialFetchDoneRef.current) {
+      // First successful fetch: record all existing alerts silently
+      activeAlerts.forEach(a => seenAlertIdsRef.current.add(a.id));
+      initialFetchDoneRef.current = true;
+      return;
     }
 
-    if (!isInitialLoadRef.current && newestTime > prevNewestTimeRef.current && newestTime > 0) {
+    let hasNewAlert = false;
+    let highestRiskScore = 0; // We will still fetch the live traffic risk score
+
+    for (const a of activeAlerts) {
+      if (!seenAlertIdsRef.current.has(a.id)) {
+        hasNewAlert = true;
+        seenAlertIdsRef.current.add(a.id);
+      }
+    }
+
+    if (hasNewAlert) {
       // Create an async context to fetch risk score
       const playAlarm = async () => {
         let riskScore = 0;
@@ -324,15 +337,7 @@ export const GNS3Provider: React.FC<{ children: React.ReactNode }> = ({ children
       
       playAlarm();
     }
-    
-    if (newestTime > prevNewestTimeRef.current) {
-      prevNewestTimeRef.current = newestTime;
-    }
-    
-    if (isInitialLoadRef.current) {
-      isInitialLoadRef.current = false;
-    }
-  }, [alerts]);
+  }, [alerts, loading]);
 
   // ── Derived values ───────────────────────────────────────────────────────────
   const onlineCount  = nodes.filter((n) => n.status === 'online').length;
