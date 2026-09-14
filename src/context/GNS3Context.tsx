@@ -208,14 +208,19 @@ export const GNS3Provider: React.FC<{ children: React.ReactNode }> = ({ children
   }, [connected, selectedProject, fetchTopology]);
 
   // ── Sound Notification ───────────────────────────────────────────────────────
-  const prevAlertsRef = useRef<number>(0);
+  const prevNewestTimeRef = useRef<number>(0);
   const isInitialLoadRef = useRef<boolean>(true);
 
   useEffect(() => {
     const activeAlerts = alerts.filter((a) => a.status === 'OPEN' || (a as any).status === 'ACTIVE');
-    const currentActiveCount = activeAlerts.length;
+    
+    let newestTime = 0;
+    if (activeAlerts.length > 0) {
+      const newest = activeAlerts.sort((a, b) => new Date(b.created_at || (b as any).timestamp).getTime() - new Date(a.created_at || (a as any).timestamp).getTime())[0];
+      newestTime = new Date(newest.created_at || (newest as any).timestamp).getTime();
+    }
 
-    if (!isInitialLoadRef.current && currentActiveCount > prevAlertsRef.current) {
+    if (!isInitialLoadRef.current && newestTime > prevNewestTimeRef.current && newestTime > 0) {
       // Create an async context to fetch risk score
       const playAlarm = async () => {
         let riskScore = 0;
@@ -282,10 +287,11 @@ export const GNS3Provider: React.FC<{ children: React.ReactNode }> = ({ children
       playAlarm();
     }
     
-    prevAlertsRef.current = currentActiveCount;
+    if (newestTime > prevNewestTimeRef.current) {
+      prevNewestTimeRef.current = newestTime;
+    }
     
-    // After the first render where alerts are set, it's no longer the initial load
-    if (alerts.length > 0 || !isInitialLoadRef.current) {
+    if (isInitialLoadRef.current) {
       isInitialLoadRef.current = false;
     }
   }, [alerts]);
