@@ -58,6 +58,38 @@ export interface GNS3State {
   lastUpdated: Date | null;
 }
 
+// ─── Global Audio Context (Fixes Auto-Play Policy) ──────────────────────────────
+let sharedAudioCtx: AudioContext | null = null;
+let audioUnlocked = false;
+
+function initAudioContext() {
+  if (typeof window === 'undefined') return null;
+  const AudioContextClass = window.AudioContext || (window as any).webkitAudioContext;
+  if (!AudioContextClass) return null;
+  
+  if (!sharedAudioCtx) {
+    sharedAudioCtx = new AudioContextClass();
+  }
+  return sharedAudioCtx;
+}
+
+function unlockAudio() {
+  if (audioUnlocked) return;
+  const ctx = initAudioContext();
+  if (ctx && ctx.state === 'suspended') {
+    ctx.resume().then(() => {
+      audioUnlocked = true;
+    }).catch(console.error);
+  } else if (ctx) {
+    audioUnlocked = true;
+  }
+}
+
+if (typeof document !== 'undefined') {
+  document.addEventListener('click', unlockAudio, { once: true });
+  document.addEventListener('keydown', unlockAudio, { once: true });
+}
+
 // ─── Context ──────────────────────────────────────────────────────────────────
 
 const GNS3Context = createContext<GNS3State | null>(null);
@@ -234,10 +266,14 @@ export const GNS3Provider: React.FC<{ children: React.ReactNode }> = ({ children
         // ─── LOUD SYNTHESIZED BEEP FOR LAB ENVIRONMENT ───
         const playLoudBeep = (risk: number) => {
           try {
-            const AudioContextClass = window.AudioContext || (window as any).webkitAudioContext;
-            if (!AudioContextClass) return;
+            const ctx = initAudioContext();
+            if (!ctx) return;
             
-            const ctx = new AudioContextClass();
+            // Attempt to resume if suspended
+            if (ctx.state === 'suspended') {
+              ctx.resume().catch(() => console.log('Audio requires user interaction first.'));
+            }
+
             const osc = ctx.createOscillator();
             const gain = ctx.createGain();
 
@@ -267,14 +303,16 @@ export const GNS3Provider: React.FC<{ children: React.ReactNode }> = ({ children
             let isLoud = false;
             const interval = setInterval(() => {
               isLoud = !isLoud;
-              gain.gain.setValueAtTime(isLoud ? 1.0 : 0, ctx.currentTime);
+              // Add a slight envelope so it doesn't click (pop) when transitioning instantly
+              const vol = isLoud ? 1.0 : 0.0;
+              gain.gain.setTargetAtTime(vol, ctx.currentTime, 0.015);
             }, beepSpeedMs);
 
             // Stop after exactly 10 seconds
             setTimeout(() => {
               clearInterval(interval);
-              osc.stop();
-              ctx.close().catch(() => {});
+              gain.gain.setTargetAtTime(0, ctx.currentTime, 0.015);
+              setTimeout(() => osc.stop(), 50); // slight delay to let envelope fade
             }, 10000);
           } catch (err) {
             console.log('Web Audio API blocked or failed:', err);
